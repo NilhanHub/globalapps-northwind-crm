@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "name": "Northwind CRM",
+  "description": "A relationship-led CRM for companies, target people, mutual contacts, warm-introduction routes, owners, stages, next actions, and activity timelines.",
+  "agentReady": true,
+  "version": "2.0",
+  "baseURL": "http://localhost:8787",
+
+  "audience": {
+    "humans": {
+      "ui": "http://localhost:8787/",
+      "role": "Full control: create, edit, delete companies."
+    },
+    "agents": {
+      "role": "Write access, no deletion. No registration required — read the guide and act."
+    }
+  },
+
+  "agentAccess": {
+    "model": "write-only-no-delete",
+    "registrationRequired": false,
+    "authenticationRequired": false,
+    "note": "Agents arrive, read the instructions, and work. They are identified only by the 'agent:<Name>' prefix on createdBy — not by any account or token. Deletion is refused to agents (HTTP 403) and is reserved for the human UI."
+  },
+
+  "docs": {
+    "humanReadable": "http://localhost:8787/agents.md",
+    "this": "http://localhost:8787/.well-known/agent.json"
+  },
+
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/companies",
+      "description": "List all companies, each with a computed warmth score.",
+      "agent": "allowed",
+      "response": "Array of company objects."
+    },
+    {
+      "method": "POST",
+      "path": "/api/companies",
+      "description": "Create a company card. Partial payloads are accepted; only 'name' is required.",
+      "agent": "allowed",
+      "requestBody": "Company object (see schema). Set createdBy to 'agent:<YourName>'.",
+      "successStatus": 201
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/companies/:id",
+      "description": "Merge-update an existing company. Send only the fields to change; activity history, intel, createdAt and createdBy are preserved. Used to edit a card or move it between stages (set status).",
+      "agent": "allowed",
+      "requestBody": "Partial company object — any subset of the schema fields.",
+      "successStatus": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/companies/:id/activity",
+      "description": "Log an outreach touch and increase the company's warmth. type is 'email' | 'call' | 'reply'.",
+      "agent": "allowed",
+      "requestBody": { "type": "email", "at": "<optional ISO timestamp>" },
+      "successStatus": 200
+    },
+    {
+      "method": "GET/POST",
+      "path": "/api/people",
+      "description": "List or create target people and reusable mutual contacts. Targets may link unlimited mutualPersonIds.",
+      "agent": "allowed"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/people/:id",
+      "description": "Edit a person or link/unlink mutual contacts. Active route relationships cannot be unlinked.",
+      "agent": "allowed"
+    },
+    {
+      "method": "GET/POST",
+      "path": "/api/routes",
+      "description": "List or create warm-introduction routes. Duplicate active target-mutual paths are rejected.",
+      "agent": "allowed"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/routes/:id",
+      "description": "Merge-update a validated route.",
+      "agent": "allowed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/routes/:id/actions",
+      "description": "Apply a route action and append the corresponding activity timeline record.",
+      "agent": "allowed"
+    },
+    {
+      "method": "GET/POST",
+      "path": "/api/activities",
+      "description": "List route activity or append a validated activity record.",
+      "agent": "allowed"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/companies/:id",
+      "description": "Delete a company. RESERVED FOR THE HUMAN UI.",
+      "agent": "denied",
+      "agentStatus": 403
+    }
+  ],
+
+  "companySchema": {
+    "required": ["name"],
+    "layers": {
+      "outreach": "Contact & reach-tracking fields — the top of the card, always visible.",
+      "intel": "Optional opportunity intelligence — scroll-down context on why this account is worth calling."
+    },
+    "fields": {
+      "name":        { "type": "string",  "required": true,  "layer": "outreach", "notes": "Non-empty. Used to build the id." },
+      "sector":      { "type": "string",  "required": false, "layer": "outreach", "notes": "Business sector, e.g. 'Food manufacturing'." },
+      "country":     { "type": "string",  "required": false, "layer": "outreach", "notes": "e.g. 'United Kingdom', 'Ireland'." },
+      "industry":    { "type": "string",  "required": false, "layer": "outreach" },
+      "size":        { "type": "number",  "required": false, "layer": "outreach", "notes": "Employee count. null or omit if unknown." },
+      "status":      { "type": "string",  "required": false, "layer": "outreach", "enum": ["New", "Contacted", "Awaiting reply", "Won", "Lost"], "default": "New" },
+      "contactName": { "type": "string",  "required": false, "layer": "outreach" },
+      "email":       { "type": "string",  "required": false, "layer": "outreach" },
+      "phone":       { "type": "string",  "required": false, "layer": "outreach" },
+      "nextStep":    { "type": "object",  "required": false, "layer": "outreach", "shape": { "type": "email|call", "note": "string" } },
+      "createdBy":   { "type": "string",  "required": false, "layer": "outreach", "notes": "Agents MUST set 'agent:<YourName>'." },
+      "intel":       {
+        "type": "object",
+        "required": false,
+        "layer": "intel",
+        "notes": "Opportunity intelligence block. Omit (or send empty) for no intel section.",
+        "fields": {
+          "signal":            { "type": "string",  "notes": "Core signal, e.g. 'D365 ERP implementation with recovery signals'." },
+          "signalType":        { "type": "string",  "notes": "Category, e.g. 'ERP implementation / rescue'." },
+          "signalTier":        { "type": "string",  "enum": ["Strong", "Promising", "Emerging"] },
+          "whyItMatters":      { "type": "string" },
+          "commercialOpening": { "type": "string",  "notes": "How to credibly open the conversation." },
+          "evidenceUrl":       { "type": "string",  "notes": "Public evidence/proof link." },
+          "doNotClaim":        { "type": "array",   "items": "string", "notes": "What NOT to claim on a call." },
+          "uncertainty":       { "type": "string",  "notes": "What remains unknown/unverified." }
+        }
+      }
+    },
+    "derived": {
+      "warmth": { "type": "object", "notes": "Computed from activity; never sent by the client. score 0-100, label Cold|Warming|Warm|Hot." },
+      "id":     { "type": "string", "notes": "Server-generated from name + a short suffix." }
+    }
+  },
+
+  "firstStep": "GET /api/companies to see what exists, then POST /api/companies to add a card.",
+  "relationshipEnums": {
+    "personType": ["target", "mutual", "both"],
+    "owner": ["Paul", "Jeremy", "Nilhan", "other", "unassigned"],
+    "stage": ["Found route", "Mutual friend to contact", "Intro requested", "Intro agreed", "Target contacted", "Meeting / reply", "Won", "Dead / no route"],
+    "confidence": ["strong", "promising", "emerging"]
+  },
+  "lastUpdated": "2026-06-30"
+}

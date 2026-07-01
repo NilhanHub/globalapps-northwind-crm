@@ -1,0 +1,15 @@
+# Northwind CRM — directives for automated agents (humans can ignore this file)
+#
+# This site is built for humans AND agents. You are expected here, not tolerated.
+# You may READ and CREATE companies, and log outreach activity. You may NOT delete.
+#
+# For everything you need to act (schema, endpoints, the access model, examples),
+# read the agent manifest:
+#
+#   /.well-known/agent.json    (structured, parseable)
+#   /agents.md                 (the full human/agent-readable guide)
+
+# Nothing here is disallowed. The API is agent-writable by design.
+User-agent: *
+Allow: /
+Disallow:

@@ -1,0 +1,26 @@
+# Dependencies (none currently — zero-dependency Node — but future-proof)
+node_modules/
+
+# Generated UI-refinement evidence (screenshots, reports, zips)
+Evidence/
+
+# Playwright capture artifacts
+.playwright-cli/
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# Windows redirect artifacts
+nul
+
+# Logs & temp files
+*.log
+*.tmp
+.tmp-*
+.verify-*

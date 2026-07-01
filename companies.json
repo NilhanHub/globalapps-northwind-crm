@@ -1,0 +1,1266 @@
+[
+  {
+    "id": "glenveagh-v176",
+    "name": "Glenveagh",
+    "industry": "",
+    "size": null,
+    "country": "Ireland",
+    "sector": "Housebuilding / construction",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A named Irish homebuilder publicly connected to a D365 customer-engagement rollout spanning customer communications, service case handling, and process improvement.",
+      "signalType": "D365 Customer Insights / Customer Service rollout",
+      "signalTier": "Strong",
+      "whyItMatters": "This is not a generic installed-base marker. It points to a front-office D365 estate where adoption, process design, case taxonomy, reporting, and ongoing optimisation can create visible business value.",
+      "commercialOpening": "Open with a value-led customer operations conversation: can 1BT help reduce manual follow-up, improve case routing, tighten communications governance, and make the D365 service journey easier to run after rollout?",
+      "evidenceUrl": "https://www.storm.ie/clients/glenveagh-customer-insights",
+      "doNotClaim": [
+        "Current dissatisfaction, budget, or partner displacement"
+      ],
+      "uncertainty": "Installed-base/rollout signal; validate current support ownership before outreach."
+    },
+    "createdAt": "2026-06-24T11:32:18.782Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "mental-health-commission-ireland-3sah",
+    "name": "Mental Health Commission Ireland",
+    "industry": "",
+    "size": null,
+    "country": "Ireland",
+    "sector": "Public sector / health regulation",
+    "status": "Contacted",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A live public-sector digital-service platform using Dynamics 365 and Power Pages, with explicit legacy-process replacement and operational metrics.",
+      "signalType": "Dynamics 365 + Power Pages public-service portal",
+      "signalTier": "Strong",
+      "whyItMatters": "Portal-led D365 programmes usually create ongoing needs around support, performance, forms, user journeys, data quality, workflow changes, and reporting as volumes grow.",
+      "commercialOpening": "Position 1BT around managed improvement for Dynamics 365 and Power Pages: intake workflow optimisation, service analytics, citizen/user experience fixes, backlog clearance, and low-risk enhancement capacity.",
+      "evidenceUrl": "https://www.codec.ie/client-success-stories/mental-health-commission-irl",
+      "doNotClaim": [
+        "Frame this as a tender lead or imply procurement intent",
+        "Access to non-public operating metrics beyond what the public story states"
+      ],
+      "uncertainty": "Public-sector route caution applies; treat as a support and optimisation hypothesis."
+    },
+    "createdAt": "2026-06-24T11:32:18.786Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "weetabix-food-company-ro40",
+    "name": "Weetabix Food Company",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Food manufacturing",
+    "status": "Contacted",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A named UK manufacturer with public D365 ERP implementation history and evidence of delivery friction, delay, or recovery support.",
+      "signalType": "D365 ERP implementation / rescue-style history",
+      "signalTier": "Strong",
+      "whyItMatters": "ERP programmes that have needed recovery support often create post-go-live demand for stabilisation, reporting clean-up, process backlog, training refresh, and enhancement delivery.",
+      "commercialOpening": "Approach with a non-invasive ERP health-check offer: identify D365 process bottlenecks, support backlog, reporting gaps, and practical quick wins in finance, operations, and manufacturing-adjacent workflows.",
+      "evidenceUrl": "https://www.ninefeettall.com/case-studies/weetabix",
+      "doNotClaim": [
+        "Current pain or unresolved failure"
+      ],
+      "uncertainty": "Project-history signal; verify current D365 state before outreach."
+    },
+    "createdAt": "2026-06-24T11:32:18.788Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "net-zero-group-ireland-r56q",
+    "name": "Net Zero Group Ireland",
+    "industry": "",
+    "size": null,
+    "country": "Ireland",
+    "sector": "Construction / energy services",
+    "status": "Awaiting reply",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "An Irish group with a Business Central and 4PS rollout touching finance, project controls, reporting, training, and change management.",
+      "signalType": "Business Central + 4PS rollout",
+      "signalTier": "Strong",
+      "whyItMatters": "That footprint creates exactly the kind of practical post-rollout needs 1BT can support: process adoption, reporting confidence, project-cost visibility, and operational change management.",
+      "commercialOpening": "Lead with a construction/project-controls optimisation offer: improve Business Central reporting, reduce month-end/project-cost friction, and support finance teams through adoption after rollout.",
+      "evidenceUrl": "https://bpf.ie/case-studies",
+      "doNotClaim": [
+        "That the rollout is failing or that the incumbent cannot support them"
+      ],
+      "uncertainty": "Partner case-study source; validate current support owner and rollout phase."
+    },
+    "createdAt": "2026-06-24T11:32:18.790Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "jackson-s-bakery-7imr",
+    "name": "Jackson's Bakery",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Food manufacturing",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A named UK manufacturer using D365 Finance and Supply Chain Management to modernise core food-manufacturing operations.",
+      "signalType": "D365 Finance and Supply Chain Management",
+      "signalTier": "Strong",
+      "whyItMatters": "F&SCM environments usually need ongoing help with process fit, reporting, integrations, training, master data, and supply-chain/finance alignment after go-live.",
+      "commercialOpening": "Pitch a focused D365 F&SCM value review: where are finance, production, supply chain, and reporting teams still using workarounds, spreadsheets, or manual reconciliation?",
+      "evidenceUrl": "https://www.columbusglobal.com/insights/cases/jacksons-bakery-scale-up-new-levels-with-microsoft-dynamics-365-finance-and-supply-chain-management",
+      "doNotClaim": [
+        "Active buying intent or current dissatisfaction"
+      ],
+      "uncertainty": "Installed-base case study; not an active buying signal by itself."
+    },
+    "createdAt": "2026-06-24T11:32:18.792Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "littlefish-uk-ltd-2104",
+    "name": "Littlefish UK Ltd",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Managed IT services",
+    "status": "Won",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A UK managed-services provider with Business Central plus Subscription Billing around recurring contract billing, manual workload, and finance-process replacement.",
+      "signalType": "Business Central + Subscription Billing",
+      "signalTier": "Strong",
+      "whyItMatters": "Recurring billing is commercially sensitive. Errors, manual handling, and subscription complexity affect cash collection, customer trust, finance productivity, and margin visibility.",
+      "commercialOpening": "Open around billing accuracy and finance scalability: can 1BT help improve Business Central subscription billing, reporting, contract-change handling, and support-team finance workflows?",
+      "evidenceUrl": "https://www.kickict.co.uk/media/czmopzgc/littlefish-uk-ltd-case-study.pdf",
+      "doNotClaim": [
+        "That the current system is broken"
+      ],
+      "uncertainty": "Partner PDF; confirm current support owner and system state before contact."
+    },
+    "createdAt": "2026-06-24T11:32:18.794Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "london-borough-of-harrow-c69i",
+    "name": "London Borough of Harrow",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Local government",
+    "status": "Won",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A public-sector D365 F&SCM transformation signal connected to HR/operations, architecture, and support language.",
+      "signalType": "D365 F&SCM public-sector transformation",
+      "signalTier": "Promising",
+      "whyItMatters": "Public-sector D365 programmes commonly need low-risk support, data/process clean-up, reporting improvements, and change-management capacity after transformation milestones.",
+      "commercialOpening": "Frame 1BT as a careful D365 support and improvement partner for public bodies: reduce support backlog, simplify reporting, and harden operational processes without treating the case study as procurement intent.",
+      "evidenceUrl": "https://www.hcltech.com/case-study/london-borough-of-harrow-tackles-dynamics-365-technology-transformation",
+      "doNotClaim": [
+        "A live procurement opportunity or that tender rules can be bypassed"
+      ],
+      "uncertainty": "Public-sector account; treat as support hypothesis, not procurement lead."
+    },
+    "createdAt": "2026-06-24T11:32:18.796Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "sustainable-energy-authority-of-ireland-seai-g9cu",
+    "name": "Sustainable Energy Authority of Ireland (SEAI)",
+    "industry": "",
+    "size": null,
+    "country": "Ireland",
+    "sector": "Public sector / energy",
+    "status": "Won",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "An Irish public body using D365-backed tools for reporting, compliance, monitoring, and renewable-energy programme administration.",
+      "signalType": "D365-backed reporting and compliance workflow",
+      "signalTier": "Promising",
+      "whyItMatters": "Programme reporting and compliance workflows create ongoing needs around data quality, workflow changes, dashboarding, audit readiness, and user support.",
+      "commercialOpening": "Approach around Microsoft business-app support for compliance workflows: reporting reliability, workflow optimisation, issue triage, and analytics improvements for D365 programme teams.",
+      "evidenceUrl": "https://www.codec.ie/client-success-stories/sustainable-energy-authority-of-ireland",
+      "doNotClaim": [
+        "Specific module ownership beyond the public evidence",
+        "Frame as a tender lead"
+      ],
+      "uncertainty": "Public-sector and module-specificity caveat; still credible for support/optimisation."
+    },
+    "createdAt": "2026-06-24T11:32:18.798Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "alzheimer-s-research-uk-96i0",
+    "name": "Alzheimer's Research UK",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Charity / non-profit",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A UK charity replacing legacy finance software with Dynamics 365 Business Central to improve efficiency and support growth.",
+      "signalType": "Business Central finance replacement",
+      "signalTier": "Promising",
+      "whyItMatters": "Finance-system replacement produces support needs around user adoption, reporting, approvals, integrations, controls, and the gradual removal of old workarounds.",
+      "commercialOpening": "Lead with a charity-finance optimisation conversation: improve Business Central reporting, month-end processes, approvals, and support resilience without increasing internal workload.",
+      "evidenceUrl": "https://www.columbusglobal.com/partners/microsoft/microsoft-dynamics-365-business-central/alzheimers-research-erp-d365bc",
+      "doNotClaim": [
+        "Current finance pain or active buying intent"
+      ],
+      "uncertainty": "Good installed-base signal; no live pain evidence."
+    },
+    "createdAt": "2026-06-24T11:32:18.800Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "lewisham-council-wjrn",
+    "name": "Lewisham Council",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Local government",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A named public-sector Dynamics 365 data-migration case, signalling technical transition work around D365 data movement and platform change.",
+      "signalType": "D365 data migration / technical migration",
+      "signalTier": "Promising",
+      "whyItMatters": "Data migrations often create follow-on needs: reconciliation, data quality, integration clean-up, user trust in reporting, and support for later phase migrations or enhancements.",
+      "commercialOpening": "Position 1BT around D365 migration assurance and post-migration data quality: reconciliation, reporting validation, integration checks, and practical support for future migration phases.",
+      "evidenceUrl": "https://xpedition.co.uk/case-study/lewisham-council-seamless-dynamics-365-data-migration-with-synchronicity",
+      "doNotClaim": [
+        "Open procurement or ongoing migration difficulty"
+      ],
+      "uncertainty": "Public-sector and migration-only caveat."
+    },
+    "createdAt": "2026-06-24T11:32:18.802Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "wesleyan-wjra",
+    "name": "Wesleyan",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Financial services / mutual",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A UK financial-services organisation publicly connected to Dynamics 365 Finance modernisation.",
+      "signalType": "D365 Finance modernisation",
+      "signalTier": "Promising",
+      "whyItMatters": "Finance modernisation creates enduring needs around controls, reporting, process standardisation, support, and continuous improvement even after the original implementation window.",
+      "commercialOpening": "Open with a D365 Finance maturity review: reporting confidence, process automation, month-end friction, controls, and where the finance platform still needs practical enhancement capacity.",
+      "evidenceUrl": "https://kpmg.com/uk/en/insights/transformation/modernising-finance-systems.html",
+      "doNotClaim": [
+        "That the implementation is current or troubled"
+      ],
+      "uncertainty": "Older case-study timeline; weaker why-now signal."
+    },
+    "createdAt": "2026-06-24T11:32:18.804Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "midland-systems-jwz4",
+    "name": "Midland Systems",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Distribution / ecommerce / road-safety equipment",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A D365 F&O implementation signal in a distribution/ecommerce operating environment, with UK/Ireland relevance.",
+      "signalType": "D365 F&O distribution/ecommerce case",
+      "signalTier": "Emerging",
+      "whyItMatters": "Distribution operations typically depend on accurate stock, order, finance, ecommerce integration, and fulfilment processes — areas where D365 support can have commercial impact.",
+      "commercialOpening": "Offer a D365 F&O operational optimisation conversation around order-to-cash, reporting, ecommerce integration, inventory visibility, and post-implementation support load.",
+      "evidenceUrl": "https://www.axsoftware.co.uk/index.php/dynamics-d365-case-studies-implementation-stories",
+      "doNotClaim": [
+        "Generic page navigation as evidence",
+        "Current pain or direct buying intent"
+      ],
+      "uncertainty": "Partner case-study/source-specificity caveat; use only Midland-specific excerpt."
+    },
+    "createdAt": "2026-06-24T11:32:18.806Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "the-felix-project-wy0c",
+    "name": "The Felix Project",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Charity / food redistribution",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A charity operations signal around Dynamics 365 enhancement for volunteer management and service operations.",
+      "signalType": "D365 volunteer-management enhancement",
+      "signalTier": "Emerging",
+      "whyItMatters": "Volunteer-management workflows are operationally sensitive: scheduling, communication, availability, reporting, and user adoption all create practical support and enhancement needs.",
+      "commercialOpening": "Approach with a non-profit operations support angle: improve D365 volunteer workflows, reduce manual coordination, strengthen reporting, and support ongoing enhancements without disrupting front-line work.",
+      "evidenceUrl": "https://www.mercuriusit.com/project/case-study-on-the-felix-project",
+      "doNotClaim": [
+        "Overstate module details or current system state"
+      ],
+      "uncertainty": "Source-stability/source-cleanup caveat remains; re-check source access and current ownership before outreach."
+    },
+    "createdAt": "2026-06-24T11:32:18.808Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "colorlites-thf-group-kiel",
+    "name": "Colorlites / THF Group",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Manufacturing / distribution",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A Business Central workflow case in a UK manufacturing/distribution setting, with explicit process, control, and customer-service relevance.",
+      "signalType": "Business Central distribution/manufacturing workflow",
+      "signalTier": "Emerging",
+      "whyItMatters": "Manufacturing and distribution businesses often need ERP support around stock, order processing, customer service, finance, reporting, and process control as they scale.",
+      "commercialOpening": "Pitch a Business Central process-controls review: where are distribution, manufacturing, finance, and customer-service workflows still manual, slow, or under-reported?",
+      "evidenceUrl": "https://dynamics-consultants.co.uk/media/4ecjfaor/colorlites-case-study-distribution.pdf",
+      "doNotClaim": [
+        "Conflate Colorlites and THF Group without confirming the current legal/account relationship",
+        "Active pain"
+      ],
+      "uncertainty": "Account-name relationship caveat; source cleanup needed before outreach."
+    },
+    "createdAt": "2026-06-24T11:32:18.809Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "a-perry-fjxk",
+    "name": "A. Perry",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Manufacturing / distribution",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Named UK manufacturer with a broad Dynamics 365 footprint and operational integration around warehouse, import, inventory, shipping-cost, and invoicing workflows.",
+      "signalType": "Business Central multi-app warehouse integration",
+      "signalTier": "Strong",
+      "whyItMatters": "This is a live operating-platform signal, not a generic installed-base mention. Multi-app D365 plus warehouse integration creates credible optimisation, reporting, support, and backlog angles.",
+      "commercialOpening": "Open around post-implementation Business Central and D365 customer-app support: reporting, warehouse integration stabilisation, automation backlog, and process optimisation.",
+      "evidenceUrl": "https://msdynamicsworld.com/press-release/perry-embraces-smart-automation-dynamics-square-tech-partner",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Current internal support capacity and incumbent partner scope are not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.811Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "moneypenny-a3k8",
+    "name": "Moneypenny",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Business services / communications",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "A named UK business had an existing Dynamics 365 platform that required audit, stabilisation, and ongoing improvement.",
+      "signalType": "Existing D365 platform audit and stabilisation",
+      "signalTier": "Strong",
+      "whyItMatters": "This is exactly the kind of signal that suggests support pain, inherited platform complexity, and room for external specialist help.",
+      "commercialOpening": "Open with a non-disruptive D365 health-check, managed support, backlog triage, and roadmap acceleration message.",
+      "evidenceUrl": "https://www.pragmatiq.co.uk/case-studies/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "The source does not state whether the stabilisation work is complete or whether a support gap remains. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.812Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "international-alert-0iyn",
+    "name": "International Alert",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Charity / non-profit",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Named UK charity/non-profit running Dynamics 365 across operational project and funding management.",
+      "signalType": "D365 CRM project and funding management",
+      "signalTier": "Strong",
+      "whyItMatters": "The signal points to CRM-style workflow complexity, integrations with SharePoint/Outlook, reporting needs, and ongoing governance requirements.",
+      "commercialOpening": "Open around Dynamics 365 support for non-profit project tracking, donor/partner visibility, reporting dashboards, and adoption improvements.",
+      "evidenceUrl": "https://www.pragmatiq.co.uk/case_study/international-alert/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "The public source does not disclose current support partner renewal dates or internal capacity. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.814Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "consolidated-timber-holdings-tk52",
+    "name": "Consolidated Timber Holdings",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Timber / distribution",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Named UK timber/distribution group with explicit Business Central support and platform-evolution needs.",
+      "signalType": "Business Central support partner signal",
+      "signalTier": "Strong",
+      "whyItMatters": "Support-partner selection is a high-intent signal: the account values BC support, ongoing development, and operational fit.",
+      "commercialOpening": "Open with complementary Business Central support, reporting, integration, and continuous-improvement capacity.",
+      "evidenceUrl": "https://xpedition.co.uk/consolidated-timber-selects-xpedition-for-microsoft-dynamics-365-business-central-support/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Incumbent support arrangement is public; appetite for a second supplier is not. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.816Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "royal-ballet-and-opera-0eoj",
+    "name": "Royal Ballet and Opera",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Cultural / arts",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Named UK cultural institution with a Business Central finance/purchasing transformation signal.",
+      "signalType": "Business Central finance/purchasing transformation",
+      "signalTier": "Strong",
+      "whyItMatters": "Finance-system replacement creates change-management, reporting, integration, support, and adoption opportunities around Business Central.",
+      "commercialOpening": "Open around post-selection Business Central readiness, finance reporting, Power BI/Power Automate enablement, and support cover.",
+      "evidenceUrl": "https://xpedition.co.uk/project-announcement-royal-ballet-and-opera/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Current project stage and go-live status are not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.817Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "kildare-county-council-d2sg",
+    "name": "Kildare County Council",
+    "industry": "",
+    "size": null,
+    "country": "Ireland",
+    "sector": "Local government",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Irish local authority running Dynamics 365 and Power Platform for citizen case management.",
+      "signalType": "D365 Customer Service + Power Platform public service",
+      "signalTier": "Strong",
+      "whyItMatters": "Citizen-service D365 platforms need ongoing support, portal optimisation, reporting, workflow tuning, and user adoption help.",
+      "commercialOpening": "Open with D365 Customer Service and Power Platform support for case management, dashboards, process optimisation, and portal improvements.",
+      "evidenceUrl": "https://www.storm.ie/clients/kildare-county-council/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Procurement route and current supplier arrangements are not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.819Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "icaew-5u3s",
+    "name": "ICAEW",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Professional body",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "UK professional body with organisation-wide Dynamics CRM and customisation/training complexity.",
+      "signalType": "Dynamics CRM training / change management",
+      "signalTier": "Promising",
+      "whyItMatters": "Highly customised CRM plus training pressure suggests ongoing support, adoption, documentation, and optimisation opportunities.",
+      "commercialOpening": "Open with Dynamics CRM adoption, training refresh, support documentation, and managed optimisation for customised environments.",
+      "evidenceUrl": "https://infopad.co.uk/case-studies/icaew/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Current CRM version and partner/support model are not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.821Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "ireland-department-of-health-hse-rlyx",
+    "name": "Ireland Department of Health / HSE",
+    "industry": "",
+    "size": null,
+    "country": "Ireland",
+    "sector": "Public sector / health",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Irish health/public-sector D365 Customer Service case-management and integration signal.",
+      "signalType": "D365 Customer Service case management (public sector)",
+      "signalTier": "Promising",
+      "whyItMatters": "Large public-service D365 case platforms create support, integration, reporting, and workflow-continuity needs.",
+      "commercialOpening": "Open only as account intelligence: D365 case-management support, reporting, and integration expertise for adjacent or future public-service workflows.",
+      "evidenceUrl": "https://www.avanade.com/en-us/insights/clients/ireland-dept-of-health-azure-dynamics-365",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Procurement access, current support model, and active project stage are not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.823Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "emac-nyez",
+    "name": "EMaC",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Automotive aftersales",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "UK automotive aftersales business with existing Dynamics 365 and Power Platform support usage.",
+      "signalType": "D365 Power Platform existing implementation support",
+      "signalTier": "Promising",
+      "whyItMatters": "Existing D365 plus Power Apps is a practical support/extension opportunity, especially around contracts, enquiries, reporting, and automation.",
+      "commercialOpening": "Open around Power Platform backlog, Dynamics 365 support, reporting, and process automation for aftersales operations.",
+      "evidenceUrl": "https://www.strategy365.co.uk/wp-content/uploads/2025/03/EMaC-Case-Study-Power-Apps-Solution.pdf",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Current D365 scope and support ownership are not fully public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.825Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "audio-technica-n4o0",
+    "name": "Audio-Technica",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Consumer electronics / audio",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Global audio equipment company with a Dynamics AX to D365 cloud migration and UK operational relevance.",
+      "signalType": "AX to D365 cloud migration",
+      "signalTier": "Strong",
+      "whyItMatters": "AX-to-D365 migrations often create post-migration support, reporting, process-fit, and optimisation opportunities.",
+      "commercialOpening": "Open around post-migration D365 support, process optimisation, cloud reporting, and integration resilience for UK operations.",
+      "evidenceUrl": "https://go-erp.eu/microsoft-dynamics-partner/case-studies/audio-technica/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "UK support ownership and current D365 operating model are not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.826Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "live-learn-consultancy-u96u",
+    "name": "Live & Learn Consultancy",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Training / consultancy",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Recent named UK training consultancy with Dynamics 365 Sales built around quote-to-cash and training operations.",
+      "signalType": "D365 Sales recent build",
+      "signalTier": "Strong",
+      "whyItMatters": "Recent builds often need post-go-live support, user adoption, reporting, automation backlog, and integration refinement.",
+      "commercialOpening": "Open with lightweight D365 Sales support, reporting, automation backlog, and process optimisation for training operations.",
+      "evidenceUrl": "https://www.allmysystems.co.uk/live-learn-consultancy-brings-sales-and-training-together-in-dynamics-365/",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Whether the new system has reached steady-state support is not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.829Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "scotch-frost-kgqg",
+    "name": "Scotch Frost",
+    "industry": "",
+    "size": null,
+    "country": "United Kingdom",
+    "sector": "Food / distribution",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Scottish food/distribution business with a NAV-to-Business Central upgrade and operational customisations.",
+      "signalType": "NAV to Business Central upgrade (distribution)",
+      "signalTier": "Promising",
+      "whyItMatters": "Route, depot, EDI, and Business Central customisations create credible ongoing support and optimisation needs.",
+      "commercialOpening": "Open around Business Central upgrade support, reporting, EDI, route operations, and customisation maintenance.",
+      "evidenceUrl": "https://www.kickict.co.uk/media/j5yjpgpn/scotch-frost-case-study.pdf",
+      "doNotClaim": [
+        "Budget, dissatisfaction, incumbent displacement, or an active buying process",
+        "That the named implementation or support partner has failed"
+      ],
+      "uncertainty": "Current Business Central version and support arrangement are not public. Use the source as a public-signal opportunity hypothesis, not as proof of immediate demand."
+    },
+    "createdAt": "2026-06-24T11:32:18.831Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "biffa-group-9o9f",
+    "name": "Biffa Group",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Waste management / environmental",
+    "status": "Contacted",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "2026-06-29T10:05:27.800Z",
+    "activity": [
+      {
+        "type": "email",
+        "at": "2026-06-29T10:05:27.800Z"
+      }
+    ],
+    "intel": {
+      "signal": "Public evidence indicates Biffa implemented Dynamics 365 Finance to automate finance processes, standardise procurement, integrate real-time data, and improve governance and reporting.",
+      "signalType": "Dynamics 365 Finance / ERP transformation",
+      "signalTier": "Strong",
+      "whyItMatters": "D365 Finance programmes usually create ongoing needs around reporting, support cover, optimisation, stabilisation, backlog capacity, integrations, user adoption, and roadmap execution.",
+      "commercialOpening": "Position 1BT around practical D365 Finance support, post-implementation capacity, and finance-systems optimisation.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "Large operational businesses using D365 Finance often need reliable, responsive support beyond the initial implementation window."
+    },
+    "createdAt": "2026-06-24T11:38:49.257Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "hadley-group-05kv",
+    "name": "Hadley Group",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Manufacturing / construction products",
+    "status": "Contacted",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "notes": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "2026-06-29T14:53:38.120Z",
+    "activity": [
+      {
+        "type": "email",
+        "at": "2026-06-29T14:53:38.120Z"
+      }
+    ],
+    "intel": {
+      "signal": "A public case study describes a Microsoft Dynamics CRM project for Hadley Group that required specialist intervention to bring the programme back on track.",
+      "signalType": "Dynamics CRM rescue / stabilisation opportunity",
+      "signalTier": "Strong",
+      "whyItMatters": "Rescue and stabilisation signals are commercially valuable because they point to real delivery pain, integration risk, and possible long-term support needs.",
+      "commercialOpening": "Position 1BT around CRM/D365 stabilisation, operational support, integration follow-through, and practical help where internal teams are stretched.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "Rescue and stabilisation signals point to delivery pressure and support demand but do not confirm current active need."
+    },
+    "createdAt": "2026-06-24T11:38:49.262Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "kepak-group-cgck",
+    "name": "Kepak Group",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Food / agribusiness",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence indicates Kepak was rolling out Microsoft Dynamics 365 as its ERP system while also investing in Microsoft Fabric across UK/Ireland operations.",
+      "signalType": "D365 ERP rollout and Microsoft Fabric activity",
+      "signalTier": "Promising",
+      "whyItMatters": "ERP rollouts create natural follow-on needs around support, reporting, data integration, adoption, process change, and backlog management.",
+      "commercialOpening": "Position 1BT around post-rollout D365 support, ERP reporting, Microsoft ecosystem integration, and steady-state application support.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "The combination of D365 and Microsoft Fabric suggests a broader Microsoft platform roadmap, not just a one-off system deployment."
+    },
+    "createdAt": "2026-06-24T11:38:49.265Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "simply-dynamics-365-1hnl",
+    "name": "Simply Dynamics 365",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Microsoft partner / IT services",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence describes an Irish Microsoft Dynamics 365 partner expanding its customer-success activity, hiring business and solution talent, and growing its partner network.",
+      "signalType": "D365 partner growth and capacity signal",
+      "signalTier": "Promising",
+      "whyItMatters": "Partner growth signals can create collaboration opportunities, delivery overflow, specialist support needs, or channel-aligned capacity conversations.",
+      "commercialOpening": "Position 1BT as a practical D365 support and delivery-capacity partner where extra Microsoft business-apps capability is useful.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "This expands lead intelligence beyond end-customers by detecting ecosystem opportunities in the Microsoft partner channel."
+    },
+    "createdAt": "2026-06-24T11:38:49.270Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "tourism-ni-5vu3",
+    "name": "Tourism NI",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Public sector / tourism",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence indicates Tourism NI upgraded CRM and customer-experience capability by onboarding Microsoft Dynamics 365 Customer Engagement, alongside cloud migration activity.",
+      "signalType": "Dynamics 365 Customer Engagement / CRM",
+      "signalTier": "Promising",
+      "whyItMatters": "Customer Engagement deployments often need ongoing optimisation, data quality work, user adoption, reporting, integration, and support as teams evolve the platform.",
+      "commercialOpening": "Position 1BT around D365 CE/CRM support, cloud aftercare, platform optimisation, and practical business-apps assistance.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "Public-sector and tourism bodies with CRM transformation activity can represent high-value Microsoft platform opportunities when timed correctly."
+    },
+    "createdAt": "2026-06-24T11:38:49.273Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "uniphar-medtech-limited-lj6b",
+    "name": "Uniphar Medtech Limited",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Healthcare / pharma distribution",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence shows a Dublin-based Dynamics 365 Business Central ERP Support Specialist hiring signal, focused on day-to-day application support.",
+      "signalType": "Business Central support hiring signal",
+      "signalTier": "Promising",
+      "whyItMatters": "Hiring for Business Central support is a direct indicator of live system ownership, internal workload, and possible need for flexible support augmentation.",
+      "commercialOpening": "Position 1BT around Business Central application support, change requests, stakeholder backlog, and flexible capacity alongside the internal team.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "Hiring signals are highly actionable because they reveal current operational pressure rather than historical technology usage alone."
+    },
+    "createdAt": "2026-06-24T11:38:49.279Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "charterhouse-holdings-l1ot",
+    "name": "Charterhouse Holdings",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Retail / e-commerce",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence indicates the company had an e-commerce platform deeply integrated with Microsoft D365, pointing to a live business-critical Microsoft estate.",
+      "signalType": "D365-integrated e-commerce estate",
+      "signalTier": "Emerging",
+      "whyItMatters": "D365-integrated commerce environments usually generate support needs around integrations, performance, process reliability, data flow, and change management.",
+      "commercialOpening": "Position 1BT around D365-integrated commerce support, systems stability, and pragmatic Microsoft application assistance once the signal is validated.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "This is the type of hidden operational lead that may not appear in simple keyword prospecting but becomes visible through signal-led intelligence."
+    },
+    "createdAt": "2026-06-24T11:38:49.282Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "clariness-jndv",
+    "name": "Clariness",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Pharmaceutical / life sciences",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence describes a Dynamics 365 implementation supporting sales and marketing operations in a pharmaceutical context.",
+      "signalType": "D365 Sales and Marketing installed base",
+      "signalTier": "Emerging",
+      "whyItMatters": "Sales and marketing CRM estates can create ongoing opportunities around campaign operations, data quality, reporting, automation, adoption, and CRM support.",
+      "commercialOpening": "Position 1BT around CRM support and optimisation if the account context confirms a relevant UK/Ireland commercial route.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "Installed-base intelligence can identify accounts worth watching even when the immediate commercial trigger is less urgent."
+    },
+    "createdAt": "2026-06-24T11:38:49.285Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "synergy-technology-4o1m",
+    "name": "Synergy Technology",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Microsoft partner / IT services",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence describes UK Business Central implementation, migration, support, and integration activity within the Microsoft partner ecosystem.",
+      "signalType": "Business Central implementation and support provider",
+      "signalTier": "Emerging",
+      "whyItMatters": "Provider-side signals may not always be end-customer leads, but they can reveal partner capacity, channel opportunities, competitive positioning, and collaboration pathways.",
+      "commercialOpening": "Position 1BT carefully around complementary capacity, specialist support, or market intelligence rather than a standard end-customer approach.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "A strong intelligence engine should detect both customer-side demand and ecosystem-side movement in the D365 market."
+    },
+    "createdAt": "2026-06-24T11:38:49.289Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "the-royal-society-subscribe360-fsx4",
+    "name": "The Royal Society / Subscribe360",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Membership / events",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence describes a platform implementation integrating multiple pre-existing systems into one bespoke environment with event and booking-management capability.",
+      "signalType": "Microsoft-platform case-study opportunity",
+      "signalTier": "Emerging",
+      "whyItMatters": "Case-study signals can indicate complex systems environments where integration, support, and Microsoft-platform skills may be relevant.",
+      "commercialOpening": "Treat as a research follow-up signal to confirm the Microsoft/D365 relevance and identify whether there is a practical support or modernisation opportunity.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "Demonstrates the ability to uncover adjacent Microsoft-platform signals that may mature into stronger sales opportunities after validation."
+    },
+    "createdAt": "2026-06-24T11:38:49.293Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "uk-defence-apparel-manufacturer-unnamed-in-source-91gg",
+    "name": "UK defence apparel manufacturer (unnamed in source)",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Defence / apparel manufacturing",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence describes a UK defence apparel manufacturer improving efficiency and accuracy by implementing Microsoft Dynamics 365 Business Central online. The company is not named in the public source.",
+      "signalType": "Business Central implementation signal",
+      "signalTier": "Emerging",
+      "whyItMatters": "Business Central implementation outcomes often create support, reporting, process refinement, and integration opportunities after the initial go-live.",
+      "commercialOpening": "Use as a research lead to identify the named organisation behind the case study and assess whether a support or optimisation conversation is warranted.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "AI-led research can surface useful signals even when the original public evidence needs further company-resolution work. Named organisation not yet identified."
+    },
+    "createdAt": "2026-06-24T11:38:49.297Z",
+    "createdBy": "agent:Intel-Pipeline"
+  },
+  {
+    "id": "willmott-dixon-ro0x",
+    "name": "Willmott Dixon",
+    "industry": "",
+    "size": null,
+    "country": "",
+    "sector": "Construction / contracting",
+    "status": "New",
+    "contactName": "",
+    "email": "",
+    "phone": "",
+    "contacted": false,
+    "nextStep": {
+      "type": "email",
+      "note": ""
+    },
+    "lastContactAt": "",
+    "activity": [],
+    "intel": {
+      "signal": "Public evidence indicates Dynamics 365 Sales and Finance activity, including payment proposals, bank reconciliation, statement issuance, and integration with existing applications.",
+      "signalType": "D365 Sales and Finance installed base",
+      "signalTier": "Emerging",
+      "whyItMatters": "Finance and sales-system signals suggest potential needs around support, automation, integration reliability, reporting, and operational improvement.",
+      "commercialOpening": "Position as an installed-base research target for future Microsoft business-apps support or optimisation opportunities.",
+      "evidenceUrl": "",
+      "doNotClaim": [],
+      "uncertainty": "Installed-base discovery can build a pipeline of strategically relevant D365 organisations for future sales planning."
+    },
+    "createdAt": "2026-06-24T11:38:49.302Z",
+    "createdBy": "agent:Intel-Pipeline"
+  }
+]

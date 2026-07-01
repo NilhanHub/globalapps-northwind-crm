@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Northwind CRM</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">N</span>
+      <h1 class="brand-name">Northwind</h1>
+    </div>
+    <nav class="topnav" aria-label="Primary navigation">
+      <button class="nav-item is-active" data-section="companies">Companies</button>
+      <button class="nav-item" data-section="people">People</button>
+      <button class="nav-item" data-section="routes">Routes</button>
+      <a class="nav-item" href="/agents.md">Agents</a>
+    </nav>
+    <div class="topbar-actions">
+      <div class="view-toggle" role="group" aria-label="View layout">
+        <button class="view-btn" data-view="grid" title="Grid view" aria-label="Grid view">
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        </button>
+        <button class="view-btn" data-view="list" title="List view" aria-label="List view">
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1" y="2" width="14" height="2" rx="1"/><rect x="1" y="7" width="14" height="2" rx="1"/><rect x="1" y="12" width="14" height="2" rx="1"/></svg>
+        </button>
+        <button class="view-btn" data-view="board" title="Board view" aria-label="Board view">
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1" y="1" width="3.5" height="14" rx="1"/><rect x="6.25" y="1" width="3.5" height="14" rx="1"/><rect x="11.5" y="1" width="3.5" height="14" rx="1"/></svg>
+        </button>
+      </div>
+      <button class="btn btn-ghost" id="archivedCompaniesBtn">Archived</button>
+      <button class="btn btn-primary" id="newBtn">+ New company</button>
+    </div>
+  </header>
+
+  <main class="container" id="companiesView">
+    <!-- Momentum summary -->
+    <section class="momentum" aria-label="Outreach momentum">
+      <p class="eyebrow">Outreach momentum</p>
+      <h2 class="momentum-headline">
+        <span id="statTotal" class="stat">0</span> companies
+        <span class="dot">·</span>
+        <span id="statAwaiting" class="stat">0</span> awaiting reply
+        <span class="dot">·</span>
+        <span id="statWon" class="stat">0</span> won this month
+      </h2>
+      <p class="legend">
+        <span class="legend-bar"></span>
+        The warmth meter fills yellow to orange to ember-red as you log outreach.
+      </p>
+    </section>
+
+    <!-- Toolbar: search + filter + sort -->
+    <section class="toolbar" aria-label="Filter companies">
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="10.5" y1="10.5" x2="14" y2="14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input type="search" id="search" placeholder="Search companies, contacts, sectors…" aria-label="Search companies" autocomplete="off" />
+        <kbd class="search-kbd" title="Press / to search">/</kbd>
+      </div>
+      <div class="filter-group">
+        <select id="filterStatus" aria-label="Filter by status">
+          <option value="all">All statuses</option>
+          <option>New</option>
+          <option>Contacted</option>
+          <option>Awaiting reply</option>
+          <option>Won</option>
+          <option>Lost</option>
+        </select>
+        <select id="filterTier" aria-label="Filter by signal strength">
+          <option value="all">All signals</option>
+          <option>Strong</option>
+          <option>Promising</option>
+          <option>Emerging</option>
+        </select>
+        <select id="sortBy" aria-label="Sort by">
+          <option value="warmth">Sort: Warmth</option>
+          <option value="name">Sort: Name</option>
+          <option value="recency">Sort: Recently added</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Company list -->
+    <section class="list" id="companyList" aria-label="Companies">
+      <p class="empty" id="emptyState" hidden>No companies yet. Add one above, or have an agent <a href="/agents.md">read the instructions</a> and POST to <code>/api/companies</code>.</p>
+    </section>
+  </main>
+
+  <main class="routes-shell" id="routesView" hidden aria-live="polite"></main>
+  <main class="people-shell" id="peopleView" hidden aria-live="polite"></main>
+
+  <!-- New / edit company modal -->
+  <div class="modal-overlay" id="modalOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <h3 id="modalTitle" class="modal-title">New company</h3>
+        <button class="icon-btn" id="modalClose" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+      </div>
+      <form id="companyForm" class="form">
+        <label class="field">
+          <span class="field-label">Company name <em>*</em></span>
+          <input type="text" name="name" required placeholder="Company name" />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Industry</span>
+            <input type="text" name="industry" placeholder="e.g. Retail, Logistics" />
+          </label>
+          <label class="field">
+            <span class="field-label">Employees</span>
+            <input type="number" name="size" min="0" placeholder="e.g. 240" />
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Sector</span>
+            <input type="text" name="sector" placeholder="e.g. Food manufacturing" />
+          </label>
+          <label class="field">
+            <span class="field-label">Country</span>
+            <input type="text" name="country" placeholder="e.g. United Kingdom" />
+          </label>
+        </div>
+        <label class="field">
+          <span class="field-label">Status</span>
+          <select name="status">
+            <option>New</option>
+            <option>Contacted</option>
+            <option>Awaiting reply</option>
+            <option>Won</option>
+            <option>Lost</option>
+          </select>
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Contact name</span>
+            <input type="text" name="contactName" placeholder="Full name" />
+          </label>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input type="email" name="email" placeholder="name@company.com" />
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Phone</span>
+            <input type="text" name="phone" placeholder="+44 …" />
+          </label>
+          <label class="field">
+            <span class="field-label">Next step</span>
+            <select name="nextStepType">
+              <option value="email">Email</option>
+              <option value="call">Call</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">
+          <span class="field-label">Next step note</span>
+          <input type="text" name="nextStepNote" placeholder="What's the next outreach action?" />
+        </label>
+        <label class="field">
+          <span class="field-label">Notes</span>
+          <textarea name="notes" rows="3" placeholder="Your running notes on this account — context, history, anything worth remembering."></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Created by</span>
+          <input type="text" name="createdBy" placeholder="Your name" />
+        </label>
+
+        <div class="form-divider">
+          <span>Opportunity intelligence</span>
+          <em>optional — scroll-down context from signal reports</em>
+        </div>
+        <label class="field">
+          <span class="field-label">Signal</span>
+          <input type="text" name="intelSignal" placeholder="D365 ERP implementation with recovery signals" />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Signal type</span>
+            <input type="text" name="intelSignalType" placeholder="ERP implementation / rescue" />
+          </label>
+          <label class="field">
+            <span class="field-label">Signal strength</span>
+            <select name="intelSignalTier">
+              <option value=""></option>
+              <option>Strong</option>
+              <option>Promising</option>
+              <option>Emerging</option>
+            </select>
+          </label>
+        </div>
+        <label class="field">
+          <span class="field-label">Why it matters</span>
+          <textarea name="intelWhy" rows="2" placeholder="Post-go-live demand for stabilisation, reporting clean-up, backlog."></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Commercial opening</span>
+          <textarea name="intelOpening" rows="2" placeholder="Non-invasive ERP health-check offer; identify bottlenecks & quick wins."></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Evidence URL</span>
+          <input type="url" name="intelEvidence" placeholder="https://ninefeettall.com/case-studies/weetabix" />
+        </label>
+        <label class="field">
+          <span class="field-label">Do not claim <em>(one per line)</em></span>
+          <textarea name="intelDoNotClaim" rows="2" placeholder="Current pain or unresolved failure&#10;Incumbent partner displacement"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Remaining uncertainty</span>
+          <input type="text" name="intelUncertainty" placeholder="Current D365 state not verified." />
+        </label>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="formCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="formSubmit">Save company</button>
+        </div>
+        <p class="form-error" id="formError" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Full-screen company record: opens when a card is clicked in any view. -->
+  <div class="detail-overlay" id="detailOverlay" hidden>
+    <div class="detail-backdrop" id="detailBackdrop"></div>
+    <div class="record" id="record" role="dialog" aria-modal="true" aria-label="Company record"></div>
+  </div>
+
+  <!-- Keyboard shortcuts help -->
+  <div class="modal-overlay" id="shortcutsOverlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcutsTitle" style="max-width: 420px;">
+      <div class="modal-head">
+        <h3 id="shortcutsTitle" class="modal-title">Keyboard shortcuts</h3>
+        <button class="icon-btn" id="shortcutsClose" aria-label="Close">✕</button>
+      </div>
+      <div class="shortcuts-body">
+        <div class="shortcut-row"><kbd class="kbd">/</kbd><span>Focus search</span></div>
+        <div class="shortcut-row"><kbd class="kbd">n</kbd><span>New company</span></div>
+        <div class="shortcut-row"><kbd class="kbd">g</kbd><span>Grid view</span></div>
+        <div class="shortcut-row"><kbd class="kbd">l</kbd><span>List view</span></div>
+        <div class="shortcut-row"><kbd class="kbd">b</kbd><span>Board view</span></div>
+        <div class="shortcut-row"><kbd class="kbd">j</kbd><kbd class="kbd">k</kbd><span>Move between cards</span></div>
+        <div class="shortcut-row"><kbd class="kbd">Enter</kbd><span>Open highlighted card</span></div>
+        <div class="shortcut-row"><kbd class="kbd">?</kbd><span>Show this help</span></div>
+        <div class="shortcut-row"><kbd class="kbd">Esc</kbd><span>Close dialog / record</span></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span>Northwind CRM · v1 · built for humans and agents</span>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" href="/agents.md">Agent instructions</a>
+    <span class="footer-sep">·</span>
+    <a class="footer-link" id="shortcutsLink" role="button" tabindex="0">Shortcuts</a>
+  </footer>
+
+  <script src="ui.js"></script>
+  <script src="app.js"></script>
+  <script src="relationships.js"></script>
+  <script src="people.js"></script>
+</body>
+</html>
