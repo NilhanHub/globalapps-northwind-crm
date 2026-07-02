@@ -37,6 +37,8 @@ nul
 .crm-sessions.json
 data/.crm-sessions.json
 data/.crm-transaction.json
+data/*.json
+data/.backups/
 
 # Local worktrees
 .worktrees/

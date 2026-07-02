@@ -1,0 +1,22 @@
+{
+  "name": "@northwind/api",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsup --config tsup.config.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/cookie": "latest",
+    "@fastify/helmet": "latest",
+    "@fastify/rate-limit": "latest",
+    "@fastify/static": "latest",
+    "@northwind/domain": "*",
+    "dotenv": "latest",
+    "fastify": "latest",
+    "zod": "latest"
+  }
+}

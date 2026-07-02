@@ -44,7 +44,7 @@ test.before(async () => {
   ], null, 2));
   server = spawn(process.execPath, ['server.js'], {
     cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1' },
+    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1', NODE_ENV: 'test' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await waitForServer();
@@ -220,7 +220,7 @@ test('relationship stores remain intact after a server restart', async () => {
   await new Promise((resolve) => server.once('exit', resolve));
   server = spawn(process.execPath, ['server.js'], {
     cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1' },
+    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1', NODE_ENV: 'test' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await waitForServer();

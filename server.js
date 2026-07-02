@@ -27,9 +27,12 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 // One shared username/password for all visitors. The login is only an access
 // gate. Every authenticated user sees the same application state. No
 // multi-tenancy, no per-user data, no role-based access control.
-const CRM_USERNAME = process.env.CRM_USERNAME || '1bt-user';
-const CRM_PASSWORD_HASH = process.env.CRM_PASSWORD_HASH
-  || crypto.createHash('sha256').update('1bt-pass').digest('hex');
+const CRM_USERNAME = process.env.CRM_USERNAME || '';
+const CRM_PASSWORD_SCRYPT = process.env.CRM_PASSWORD_SCRYPT || '';
+const BYPASS_AUTH = process.env.BYPASS_AUTH === '1' && process.env.NODE_ENV === 'test';
+if (!BYPASS_AUTH && (!CRM_USERNAME || !CRM_PASSWORD_SCRYPT)) {
+  throw new Error('CRM_USERNAME and CRM_PASSWORD_SCRYPT are required.');
+}
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const sessions = new Map(); // token -> { createdAt }
@@ -90,8 +93,17 @@ function safeJsonParse(text) {
   return parsed;
 }
 
-function hashPassword(password) {
-  return crypto.createHash('sha256').update(password).digest('hex');
+function safeEqual(left, right) {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function verifyPassword(password) {
+  const [algorithm, , , , salt, expected] = CRM_PASSWORD_SCRYPT.split('$');
+  if (algorithm !== 'scrypt' || !salt || !expected) return false;
+  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+  return safeEqual(derived, expected);
 }
 
 function persistSessions() {
@@ -102,16 +114,18 @@ function persistSessions() {
 
 function createSession() {
   const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, { createdAt: Date.now() });
+  sessions.set(crypto.createHash('sha256').update(token).digest('hex'), { createdAt: Date.now() });
   persistSessions();
   return token;
 }
 
 function getSession(token) {
-  if (!token || !sessions.has(token)) return null;
-  const session = sessions.get(token);
+  if (!token) return null;
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  if (!sessions.has(tokenHash)) return null;
+  const session = sessions.get(tokenHash);
   if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    sessions.delete(token);
+    sessions.delete(tokenHash);
     persistSessions();
     return null;
   }
@@ -119,7 +133,7 @@ function getSession(token) {
 }
 
 function deleteSession(token) {
-  sessions.delete(token);
+  sessions.delete(crypto.createHash('sha256').update(token).digest('hex'));
   persistSessions();
 }
 
@@ -618,10 +632,6 @@ function sendJSON(res, status, payload) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Security-Policy': CSP_HEADER,
-    // Permissive CORS — this is a local dev tool open to any desktop agent.
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Source',
   };
   writeResponse(res, status, headers, body);
 }
@@ -670,9 +680,6 @@ function respondWithJSON(res, status, payload, req) {
     'Content-Security-Policy': CSP_HEADER,
     'ETag': etag,
     'Cache-Control': CACHE_NO_CACHE,
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Source',
   };
   writeResponse(res, status, headers, body);
 }
@@ -801,14 +808,13 @@ async function handleAPI(req, res) {
     const username = String(body.username || '').trim();
     const password = String(body.password || '');
     if (!username || !password) return sendJSON(res, 400, { error: 'Username and password required' });
-    if (username !== CRM_USERNAME || hashPassword(password) !== CRM_PASSWORD_HASH) {
+    if (!safeEqual(username, CRM_USERNAME) || !verifyPassword(password)) {
       return sendJSON(res, 401, { error: 'Invalid credentials' });
     }
     const token = createSession();
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
-      'Set-Cookie': `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`,
-      'Access-Control-Allow-Origin': '*',
+      'Set-Cookie': `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_TTL_MS / 1000}${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`,
     });
     res.end(JSON.stringify({ ok: true }));
     return;
@@ -820,8 +826,7 @@ async function handleAPI(req, res) {
     if (token) deleteSession(token);
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
-      'Set-Cookie': `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`,
-      'Access-Control-Allow-Origin': '*',
+      'Set-Cookie': `${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,
     });
     res.end(JSON.stringify({ ok: true }));
     return;
@@ -836,7 +841,7 @@ async function handleAPI(req, res) {
   }
 
   // --- AUTH GUARD (all remaining API endpoints require a valid session) ---
-  if (!process.env.BYPASS_AUTH) {
+  if (!BYPASS_AUTH) {
     const cookies = parseCookies(req);
     const sessionToken = cookies[SESSION_COOKIE];
     if (!getSession(sessionToken)) {
@@ -846,7 +851,7 @@ async function handleAPI(req, res) {
   }
 
   // --- CSRF check for mutating requests (skip auth endpoints and GET) ---
-  if (!process.env.BYPASS_AUTH && ['POST', 'PATCH', 'DELETE'].includes(method)
+  if (!BYPASS_AUTH && ['POST', 'PATCH', 'DELETE'].includes(method)
       && url !== '/api/auth/login' && url !== '/api/auth/logout') {
     const origin = req.headers.origin || '';
     const referer = req.headers.referer || '';
@@ -893,7 +898,6 @@ async function handleAPI(req, res) {
     res.writeHead(200, {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': 'attachment; filename="northwind-crm-export.csv"',
-      'Access-Control-Allow-Origin': '*',
     });
     res.end(csv);
     return;
@@ -1709,5 +1713,5 @@ server.listen(PORT, () => {
   console.log(`  Login ->  http://localhost:${PORT}/login`);
   console.log(`  API   ->  http://localhost:${PORT}/api/companies`);
   console.log(`  Agents (read then POST) ->  http://localhost:${PORT}/agents.md`);
-  console.log(`  Shared credentials: ${CRM_USERNAME} / <password from CRM_PASSWORD_HASH>`);
+  console.log(`  Shared account: ${CRM_USERNAME}`);
 });

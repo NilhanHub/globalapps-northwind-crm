@@ -45,7 +45,7 @@ test.before(async () => {
   ], null, 2));
   server = spawn(process.execPath, ['server.js'], {
     cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1' },
+    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1', NODE_ENV: 'test' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await waitForServer();
@@ -266,7 +266,7 @@ test('startup recovers a prepared coordinated transaction journal', async () => 
 
   server = spawn(process.execPath, ['server.js'], {
     cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1' },
+    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1', NODE_ENV: 'test' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await waitForServer();

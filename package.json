@@ -1,17 +1,53 @@
 {
   "name": "northwind-crm",
-  "version": "1.0.0",
-  "description": "Boutique D365 opportunity-tracking CRM for tracking outreach to UK/IE accounts.",
+  "version": "2.0.0",
+  "description": "Northwind relationship intelligence CRM.",
   "private": true,
   "type": "module",
-  "main": "server.js",
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test tests/*.test.js"
+    "dev": "concurrently -n api,web -c burgundy,cyan \"npm run dev -w @northwind/api\" \"npm run dev -w @northwind/web\"",
+    "start": "npm run start -w @northwind/api",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test:unit && npm run test:legacy",
+    "test:unit": "vitest run",
+    "test:legacy": "node --test tests/*.test.js",
+    "test:e2e": "playwright test",
+    "start:e2e": "tsx scripts/start-e2e.ts",
+    "evidence:capture": "tsx scripts/capture-evidence.ts",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "data:migrate": "tsx scripts/migrate-data.ts",
+    "auth:hash-password": "tsx scripts/hash-password.ts"
   },
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "keywords": ["crm", "d365", "outreach", "sales"],
-  "license": "UNLICENSED"
+  "engines": { "node": ">=20.0.0" },
+  "keywords": ["crm", "relationships", "d365", "sales"],
+  "license": "UNLICENSED",
+  "overrides": { "esbuild": ">=0.28.1" },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@axe-core/playwright": "latest",
+    "@playwright/test": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "concurrently": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "globals": "latest",
+    "jsdom": "latest",
+    "prettier": "latest",
+    "tsx": "latest",
+    "tsup": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  }
 }
