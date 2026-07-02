@@ -11,3 +11,5 @@ The workspace application under `apps/` and `packages/` is authoritative. Preser
 - Keep evidence under ignored `Evidence/`; verify final archives by extraction.
 
 See `README.md`, `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/DATA_RECOVERY.md` and `SECURITY.md` before changing boundaries.
+
+- The Bifrost Bridge (`aladdin-one-ring` MCP) routes to downstream MCPs via the `aladdin_one_ring` tool (`mode="execute"`, `server="<route>"`, `tool="<tool>"`, `arguments={...}`). The tool description and `server`/`mode` enums auto-list the currently-healthy routes at session start, so valid `server` values are visible without reading docs. See `docs/BIFROST_MCP.md` for the full working/broken route list. Prefer the direct `context7` and `playwright` MCPs over Bifrost for those two; use Bifrost only for MCPs opencode has no direct connection to.
