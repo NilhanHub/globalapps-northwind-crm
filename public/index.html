@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#companiesView">Skip to main content</a>
   <!-- Top bar -->
   <header class="topbar">
     <div class="brand">
@@ -83,7 +84,16 @@
           <option value="warmth">Sort: Warmth</option>
           <option value="name">Sort: Name</option>
           <option value="recency">Sort: Recently added</option>
+          <option value="due">Sort: Follow-up date</option>
         </select>
+        <select id="filterDue" aria-label="Filter by follow-up">
+          <option value="all">All follow-ups</option>
+          <option value="today">Due today</option>
+          <option value="overdue">Overdue</option>
+          <option value="week">Due this week</option>
+          <option value="none">No date set</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" id="exportBtn" title="Download all companies as a CSV file">Export CSV</button>
       </div>
     </section>
 
@@ -262,6 +272,11 @@
     <a class="footer-link" id="shortcutsLink" role="button" tabindex="0">Shortcuts</a>
   </footer>
 
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
   <script src="ui.js"></script>
   <script src="app.js"></script>
   <script src="relationships.js"></script>

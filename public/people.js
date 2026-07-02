@@ -1,4 +1,5 @@
 /* Global People and relationship-network workspace. */
+/* global lastCompanies, api, crmIcon, el, toast, timeAgo, openRouteForm, refreshRelationships, $, $$, ROUTE_OWNERS, ACTIVE_STAGES, routeOwnerLabel, option, createDialog, showFormError, formField, PEOPLE_API, ROUTES_API, setSection */
 
 let directoryPeople = [];
 let directoryRoutes = [];
@@ -30,6 +31,7 @@ function renderPeopleWorkspace() {
   const mutuals = active.filter((person) => ['mutual', 'both'].includes(person.type));
   const targets = active.filter((person) => ['target', 'both'].includes(person.type));
   const duplicates = active.filter((person) => person.duplicateCandidateIds?.length);
+  const companiesLoaded = Array.isArray(lastCompanies) && lastCompanies.length > 0;
   host.replaceChildren(
     el('section', { class: 'people-hero' },
       el('div', {}, el('p', { class: 'eyebrow' }, 'Relationship network'), el('h2', {}, 'People who can open the right door'),
@@ -43,7 +45,7 @@ function renderPeopleWorkspace() {
     el('section', { class: 'people-toolbar', 'aria-label': 'Filter people' },
       el('label', { class: 'route-search' }, el('span', { class: 'sr-only' }, 'Search people'), crmIcon('search'),
         el('input', { id: 'peopleSearch', type: 'search', value: peopleSearch, placeholder: 'Search people, roles, companies…' })),
-      el('select', { id: 'peopleCompanyFilter', 'aria-label': 'Filter people by company' }, option('all', 'All companies', peopleCompanyFilter), ...lastCompanies.map((company) => option(company.id, company.name, peopleCompanyFilter))),
+      el('select', { id: 'peopleCompanyFilter', 'aria-label': 'Filter people by company' }, option('all', 'All companies', peopleCompanyFilter), ...(companiesLoaded ? lastCompanies.map((company) => option(company.id, company.name, peopleCompanyFilter)) : [])),
       el('select', { id: 'peopleOwnerFilter', 'aria-label': 'Filter people by route owner' }, option('all', 'All route owners', peopleOwnerFilter), ...ROUTE_OWNERS.map((owner) => option(owner, routeOwnerLabel(owner), peopleOwnerFilter))),
       el('select', { id: 'peopleRouteFilter', 'aria-label': 'Filter people by route state' }, option('all', 'Any route state', peopleRouteFilter), option('active', 'Has active route', peopleRouteFilter), option('none', 'No active route', peopleRouteFilter)),
       el('button', { class: 'btn btn-primary', id: 'addPersonBtn' }, '+ Add person')
@@ -126,7 +128,8 @@ function renderPersonCard(person) {
 function wirePeopleWorkspace() {
   $$('[data-people-view]').forEach((button) => button.addEventListener('click', () => { peopleSubview = button.dataset.peopleView; sessionStorage.setItem('crm-people-subview', peopleSubview); renderPeopleWorkspace(); }));
   $('#addPersonBtn')?.addEventListener('click', () => openPersonEditor());
-  $('#peopleSearch')?.addEventListener('input', (event) => { peopleSearch = event.target.value; renderPeopleWorkspace(); $('#peopleSearch')?.focus(); });
+  let peopleSearchTimer;
+  $('#peopleSearch')?.addEventListener('input', (event) => { peopleSearch = event.target.value; clearTimeout(peopleSearchTimer); peopleSearchTimer = setTimeout(renderPeopleWorkspace, 120); });
   for (const [id, setter] of [['peopleCompanyFilter', (value) => { peopleCompanyFilter = value; }], ['peopleOwnerFilter', (value) => { peopleOwnerFilter = value; }], ['peopleRouteFilter', (value) => { peopleRouteFilter = value; }]]) {
     $(`#${id}`)?.addEventListener('change', (event) => { setter(event.target.value); renderPeopleWorkspace(); });
   }

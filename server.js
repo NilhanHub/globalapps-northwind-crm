@@ -5,16 +5,161 @@
 //
 //   node server.js   ->   http://localhost:8787
 
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const { createStores } = require('./lib/store');
-const { archiveRecord, restoreRecord, archiveInput } = require('./lib/archive');
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import zlib from 'zlib';
+import { fileURLToPath } from 'url';
+import { createStores } from './lib/store.js';
+import { createSessionStore } from './lib/session-store.js';
+import { archiveRecord, restoreRecord, archiveInput } from './lib/archive.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 8787;
 const ROOT = __dirname;
 const DATA_DIR = process.env.CRM_DATA_DIR || ROOT;
 const PUBLIC_DIR = path.join(ROOT, 'public');
+
+// --- shared auth (single credential gate) -----------------------------------
+// One shared username/password for all visitors. The login is only an access
+// gate. Every authenticated user sees the same application state. No
+// multi-tenancy, no per-user data, no role-based access control.
+const CRM_USERNAME = process.env.CRM_USERNAME || '1bt-user';
+const CRM_PASSWORD_HASH = process.env.CRM_PASSWORD_HASH
+  || crypto.createHash('sha256').update('1bt-pass').digest('hex');
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+const sessions = new Map(); // token -> { createdAt }
+const sessionStore = createSessionStore(DATA_DIR);
+// Restore persisted sessions on startup
+for (const [token, data] of Object.entries(sessionStore.load())) {
+  sessions.set(token, data);
+}
+const SESSION_COOKIE = 'crm_session';
+const MAX_FIELD_LENGTH = 2000;
+const MAX_INTEL_FIELD_LENGTH = 5000;
+const MAX_BODY_BYTES = 1024 * 100; // 100KB max request body
+const STATIC_CACHE_MAX_AGE = 31536000; // 1 year for fingerprinted assets
+const LOGIN_RATE_LIMIT = 5;
+const LOGIN_RATE_WINDOW = 60000;
+const API_RATE_LIMIT = 60;
+const API_RATE_WINDOW = 60000;
+const JSON_PARSE_DEPTH_LIMIT = 20;
+const loginAttempts = new Map();
+const apiRateLimits = new Map();
+const STATIC_ALLOW_LIST = ['/login', '/login.html', '/styles.css', '/ui.js', '/favicon.svg', '/robots.txt'];
+
+// --- rate limiter -----------------------------------------------------------
+function createRateLimit(store, max, windowMs) {
+  return (key) => {
+    const now = Date.now();
+    const record = store.get(key);
+    if (record && now < record.resetAt && record.count >= max) return false;
+    if (!record || now >= record.resetAt) {
+      store.set(key, { count: 1, resetAt: now + windowMs });
+    } else {
+      record.count++;
+    }
+    return true;
+  };
+}
+
+const checkLoginRate = createRateLimit(loginAttempts, LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW);
+const checkApiRate = createRateLimit(apiRateLimits, API_RATE_LIMIT, API_RATE_WINDOW);
+
+// --- structured logger ------------------------------------------------------
+function logEvent(level, message, meta = {}) {
+  const entry = { time: new Date().toISOString(), level, msg: message, ...meta };
+  if (level === 'error') console.error(JSON.stringify(entry));
+  else if (level === 'warn') console.warn(JSON.stringify(entry));
+  else console.log(JSON.stringify(entry));
+}
+
+// --- safe JSON.parse with depth limit ---------------------------------------
+function safeJsonParse(text) {
+  let depth = 0;
+  const parsed = JSON.parse(text, (key, value) => {
+    if (key === '') return value;
+    depth++;
+    if (depth > JSON_PARSE_DEPTH_LIMIT) throw new Error('Object nesting too deep');
+    return value;
+  });
+  return parsed;
+}
+
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+function persistSessions() {
+  const obj = {};
+  for (const [token, data] of sessions) obj[token] = data;
+  sessionStore.save(obj);
+}
+
+function createSession() {
+  const token = crypto.randomBytes(32).toString('hex');
+  sessions.set(token, { createdAt: Date.now() });
+  persistSessions();
+  return token;
+}
+
+function getSession(token) {
+  if (!token || !sessions.has(token)) return null;
+  const session = sessions.get(token);
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+    sessions.delete(token);
+    persistSessions();
+    return null;
+  }
+  return session;
+}
+
+function deleteSession(token) {
+  sessions.delete(token);
+  persistSessions();
+}
+
+function isPublicPath(urlPath) {
+  const p = urlPath.split('?')[0].split('#')[0];
+  if (p.startsWith('/api/auth/')) return true;
+  return STATIC_ALLOW_LIST.some((allowed) => p === allowed || p === allowed + '.html');
+}
+
+function authenticate(req, res) {
+  const cookies = parseCookies(req);
+  const token = cookies[SESSION_COOKIE];
+  const session = getSession(token);
+  if (session) return true;
+  // For API requests, return 401. For page requests, redirect to login.
+  if (req.url.startsWith('/api/')) {
+    sendJSON(res, 401, { error: 'Authentication required' });
+    return false;
+  }
+  // Serve login page for non-API requests without auth
+  const urlPath = req.url.split('?')[0];
+  if (urlPath !== '/login' && urlPath !== '/login.html') {
+    res.writeHead(302, { Location: '/login' });
+    res.end();
+    return false;
+  }
+  return true; // let the login page through
+}
+
+function parseCookies(req) {
+  const cookie = req.headers.cookie;
+  if (!cookie) return {};
+  const result = {};
+  for (const part of cookie.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    result[part.slice(0, idx).trim()] = part.slice(idx + 1).trim();
+  }
+  return result;
+}
 
 // --- persistence -----------------------------------------------------------
 const stores = createStores(DATA_DIR);
@@ -87,6 +232,40 @@ function normalizeCompany(input, existing) {
   const body = input || {};
   const now = new Date().toISOString();
 
+  // Validate field lengths
+  const strFields = ['name', 'industry', 'sector', 'country', 'contactName', 'email', 'phone', 'notes', 'createdBy'];
+  for (const field of strFields) {
+    if (body[field] && String(body[field]).length > MAX_FIELD_LENGTH) {
+      const err = new Error(`${field} exceeds maximum length of ${MAX_FIELD_LENGTH}`);
+      err.code = 'BAD_INPUT';
+      throw err;
+    }
+  }
+  if (body.nextStep?.note && body.nextStep.note.length > MAX_FIELD_LENGTH) {
+    const err = new Error('nextStep.note exceeds maximum length');
+    err.code = 'BAD_INPUT';
+    throw err;
+  }
+  if (body.intel) {
+    const intelStrFields = ['signal', 'signalType', 'whyItMatters', 'commercialOpening', 'evidenceUrl', 'uncertainty'];
+    for (const field of intelStrFields) {
+      if (body.intel[field] && String(body.intel[field]).length > MAX_INTEL_FIELD_LENGTH) {
+        const err = new Error(`intel.${field} exceeds maximum length of ${MAX_INTEL_FIELD_LENGTH}`);
+        err.code = 'BAD_INPUT';
+        throw err;
+      }
+    }
+    if (body.intel.doNotClaim && Array.isArray(body.intel.doNotClaim)) {
+      for (const item of body.intel.doNotClaim) {
+        if (item && String(item).length > MAX_INTEL_FIELD_LENGTH) {
+          const err = new Error('intel.doNotClaim item exceeds maximum length');
+          err.code = 'BAD_INPUT';
+          throw err;
+        }
+      }
+    }
+  }
+
   // Merge so edits keep their fields; agents can send partial payloads.
   const name = String(body.name ?? existing?.name ?? '').trim();
   if (!name) {
@@ -117,6 +296,10 @@ function normalizeCompany(input, existing) {
       type: body.nextStep?.type === 'call' ? 'call' : (existing?.nextStep?.type || 'email'),
       note: String(body.nextStep?.note ?? existing?.nextStep?.note ?? '').trim(),
     },
+    // Concrete follow-up date (YYYY-MM-DD) — drives the "due today" view.
+    followUpDate: (body.followUpDate !== undefined && validDate(body.followUpDate))
+      ? body.followUpDate
+      : (existing?.followUpDate || ''),
     lastContactAt: existing?.lastContactAt || '',
     activity: Array.isArray(existing?.activity) ? existing.activity : [],
 
@@ -425,29 +608,96 @@ const ACTIONS = {
 
 // --- tiny HTTP helpers -----------------------------------------------------
 
+const CSP_HEADER = "default-src 'self'; style-src 'self' fonts.googleapis.com; font-src fonts.gstatic.com; img-src 'self' data:; script-src 'self'; connect-src 'self'; form-action 'self'";
+
+const CACHE_IMMUTABLE = `public, max-age=${STATIC_CACHE_MAX_AGE}, immutable`;
+const CACHE_NO_CACHE = 'no-cache';
+
 function sendJSON(res, status, payload) {
   const body = JSON.stringify(payload);
-  res.writeHead(status, {
+  const headers = {
     'Content-Type': 'application/json; charset=utf-8',
+    'Content-Security-Policy': CSP_HEADER,
     // Permissive CORS — this is a local dev tool open to any desktop agent.
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Source',
-  });
+  };
+  writeResponse(res, status, headers, body);
+}
+
+// Write a response with optional Brotli compression for bodies > 1KB when the
+// client advertises Brotli support. Falls back to plain text on error.
+function writeResponse(res, status, headers, body) {
+  headers = { ...headers };
+  if (body.length > 1024 && acceptsBrotli(res.req)) {
+    try {
+      const compressed = zlib.brotliCompressSync(Buffer.from(body, 'utf8'));
+      headers['Content-Encoding'] = 'br';
+      headers['Content-Length'] = compressed.length;
+      res.writeHead(status, headers);
+      res.end(compressed);
+      return;
+    } catch (err) {
+      logEvent('warn', 'Brotli compression failed, sending uncompressed', { error: err.message });
+    }
+  }
+  headers['Content-Length'] = Buffer.byteLength(body, 'utf8');
+  res.writeHead(status, headers);
   res.end(body);
+}
+
+function acceptsBrotli(req) {
+  const enc = req.headers['accept-encoding'] || '';
+  return enc.includes('br');
+}
+
+// Like sendJSON, but supports conditional GET via ETags. Computes a fast hash of
+// the payload and returns 304 if the client already has the latest version.
+function respondWithJSON(res, status, payload, req) {
+  const body = JSON.stringify(payload);
+  const etag = `W/"${crypto.createHash('sha1').update(body).digest('base64')}"`;
+  if (req.headers['if-none-match'] === etag) {
+    res.writeHead(304, {
+      'Content-Security-Policy': CSP_HEADER,
+      'ETag': etag,
+    });
+    res.end();
+    return;
+  }
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Security-Policy': CSP_HEADER,
+    'ETag': etag,
+    'Cache-Control': CACHE_NO_CACHE,
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Source',
+  };
+  writeResponse(res, status, headers, body);
 }
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', (c) => chunks.push(c));
+    let total = 0;
+    req.on('data', (c) => {
+      total += c.length;
+      if (total > MAX_BODY_BYTES) {
+        req.destroy(new Error('Request body too large'));
+        const e = new Error(`Request body exceeds ${MAX_BODY_BYTES} bytes`);
+        e.code = 'BAD_INPUT';
+        reject(e);
+      }
+      chunks.push(c);
+    });
     req.on('end', () => {
       const raw = Buffer.concat(chunks).toString('utf8');
       if (!raw) return resolve({});
       try {
-        resolve(JSON.parse(raw));
+        resolve(safeJsonParse(raw));
       } catch (err) {
-        const e = new Error('Invalid JSON body');
+        const e = new Error(err.message === 'Object nesting too deep' ? 'Request body nesting too deep' : 'Invalid JSON body');
         e.code = 'BAD_INPUT';
         reject(e);
       }
@@ -471,6 +721,7 @@ const MIME = {
 function serveStatic(req, res) {
   let urlPath = decodeURIComponent(req.url.split('?')[0]);
   if (urlPath === '/') urlPath = '/index.html';
+  else if (urlPath === '/login') urlPath = '/login.html';
   const filePath = path.join(PUBLIC_DIR, path.normalize(urlPath).replace(/^([/\\])+/, ''));
 
   // Keep requests inside /public (no path traversal).
@@ -482,10 +733,47 @@ function serveStatic(req, res) {
   try {
     if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) return false;
     const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
-    fs.createReadStream(filePath).pipe(res);
+    const stat = fs.statSync(filePath);
+
+    // Cache policy: fingerprinted assets (CSS, JS) get far-future cache;
+    // HTML and others get no-cache so updates are picked up immediately.
+    const isImmutable = ext === '.css' || ext === '.js' || ext === '.svg' || ext === '.ico';
+    const cacheControl = isImmutable ? CACHE_IMMUTABLE : CACHE_NO_CACHE;
+
+    // ETag from file mtime + size for conditional GETs
+    const etag = `W/"${stat.mtimeMs}-${stat.size}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { 'Content-Security-Policy': CSP_HEADER });
+      res.end();
+      return true;
+    }
+
+    const headers = {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      'Content-Security-Policy': CSP_HEADER,
+      'Cache-Control': cacheControl,
+      'ETag': etag,
+    };
+    // Serve compressed when beneficial (CSS/JS > 1KB)
+    const content = fs.readFileSync(filePath);
+    if (content.length > 1024 && (ext === '.css' || ext === '.js' || ext === '.html') && acceptsBrotli(req)) {
+      try {
+        const compressed = zlib.brotliCompressSync(content);
+        headers['Content-Encoding'] = 'br';
+        headers['Content-Length'] = compressed.length;
+        res.writeHead(200, headers);
+        res.end(compressed);
+        return true;
+      } catch (err) {
+        logEvent('warn', 'Brotli compression failed for static file', { file: urlPath, error: err.message });
+      }
+    }
+    headers['Content-Length'] = content.length;
+    res.writeHead(200, headers);
+    res.end(content);
     return true;
-  } catch {
+  } catch (err) {
+    logEvent('error', 'Static file serve error', { file: urlPath, error: err.message });
     return false;
   }
 }
@@ -500,11 +788,114 @@ async function handleAPI(req, res) {
   // CORS preflight for any API path.
   if (method === 'OPTIONS') { sendJSON(res, 204, {}); return; }
 
+  // --- AUTH ENDPOINTS (always public) ---
+  if (method === 'POST' && url === '/api/auth/login') {
+    const ip = req.socket.remoteAddress || 'unknown';
+    if (!checkLoginRate(ip)) {
+      sendJSON(res, 429, { error: 'Too many login attempts. Try again in 60 seconds.' });
+      return;
+    }
+    let body;
+    try { body = await readBody(req); }
+    catch { return sendJSON(res, 400, { error: 'Invalid JSON' }); }
+    const username = String(body.username || '').trim();
+    const password = String(body.password || '');
+    if (!username || !password) return sendJSON(res, 400, { error: 'Username and password required' });
+    if (username !== CRM_USERNAME || hashPassword(password) !== CRM_PASSWORD_HASH) {
+      return sendJSON(res, 401, { error: 'Invalid credentials' });
+    }
+    const token = createSession();
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Set-Cookie': `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_TTL_MS / 1000}`,
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (method === 'POST' && url === '/api/auth/logout') {
+    const cookies = parseCookies(req);
+    const token = cookies[SESSION_COOKIE];
+    if (token) deleteSession(token);
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Set-Cookie': `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`,
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (method === 'GET' && url === '/api/auth/session') {
+    const cookies = parseCookies(req);
+    const token = cookies[SESSION_COOKIE];
+    const session = getSession(token);
+    sendJSON(res, 200, { authenticated: !!session });
+    return;
+  }
+
+  // --- AUTH GUARD (all remaining API endpoints require a valid session) ---
+  if (!process.env.BYPASS_AUTH) {
+    const cookies = parseCookies(req);
+    const sessionToken = cookies[SESSION_COOKIE];
+    if (!getSession(sessionToken)) {
+      sendJSON(res, 401, { error: 'Authentication required' });
+      return;
+    }
+  }
+
+  // --- CSRF check for mutating requests (skip auth endpoints and GET) ---
+  if (!process.env.BYPASS_AUTH && ['POST', 'PATCH', 'DELETE'].includes(method)
+      && url !== '/api/auth/login' && url !== '/api/auth/logout') {
+    const origin = req.headers.origin || '';
+    const referer = req.headers.referer || '';
+    const local = (s) => s.startsWith('http://localhost') || s.startsWith('http://127.0.0.1');
+    if (origin && !local(origin) && referer && !local(referer)) {
+      sendJSON(res, 403, { error: 'CSRF check failed' });
+      return;
+    }
+  }
+
+  // --- Rate limit for mutation endpoints ---
+  if (['POST', 'PATCH', 'DELETE'].includes(method)) {
+    const ip = req.socket.remoteAddress || 'unknown';
+    if (!checkApiRate(ip)) {
+      sendJSON(res, 429, { error: 'Too many requests. Try again later.' });
+      return;
+    }
+  }
+
   // GET /api/companies
   if (method === 'GET' && url === apiBase) {
     const includeArchived = new URL(req.url, 'http://localhost').searchParams.get('includeArchived') === 'true';
     const all = loadCompanies().filter((company) => includeArchived || !company.archivedAt).map(decorate);
-    sendJSON(res, 200, all);
+    respondWithJSON(res, 200, all, req);
+    return;
+  }
+
+  // GET /api/companies/export.csv — CSV download of the pipeline.
+  if (method === 'GET' && url === `${apiBase}/export.csv`) {
+    const all = loadCompanies().filter((c) => !c.archivedAt).map(decorate);
+    const esc = (v) => {
+      const s = String(v ?? '');
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const cols = ['Name', 'Status', 'Sector', 'Country', 'Industry', 'Employees', 'Contact', 'Email', 'Phone',
+      'Signal tier', 'Signal', 'Warmth score', 'Warmth label', 'Last contact', 'Next step', 'Notes', 'Created at'];
+    const rows = all.map((c) => [
+      c.name, c.status, c.sector, c.country, c.industry, c.size, c.contactName, c.email, c.phone,
+      c.intel?.signalTier || '', (c.intel?.signal || '').replace(/\n/g, ' '),
+      c.warmth?.score, c.warmth?.label, c.lastContactAt, `${c.nextStep?.type || ''} — ${c.nextStep?.note || ''}`,
+      (c.notes || '').replace(/\n/g, ' '), c.createdAt
+    ].map(esc).join(','));
+    const csv = [cols.join(','), ...rows].join('\r\n');
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="northwind-crm-export.csv"',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(csv);
     return;
   }
 
@@ -723,7 +1114,7 @@ async function handleAPI(req, res) {
       .filter((person) => includeArchived || (!person.archivedAt && !archivedCompanyIds.has(person.companyId)));
     if (companyId) people = people.filter((person) => person.companyId === companyId);
     if (type) people = people.filter((person) => person.type === type || person.type === 'both');
-    return sendJSON(res, 200, people);
+    return respondWithJSON(res, 200, people, req);
   }
 
   if (method === 'POST' && url === `${peopleBase}/merge`) {
@@ -917,7 +1308,7 @@ async function handleAPI(req, res) {
       const value = parsed.searchParams.get(key);
       if (value) routes = routes.filter((route) => route[key] === value);
     }
-    return sendJSON(res, 200, routes);
+    return respondWithJSON(res, 200, routes, req);
   }
 
   if (method === 'POST' && url === `${routesBase}/bulk/actions`) {
@@ -1227,7 +1618,7 @@ async function handleAPI(req, res) {
       if (value) activities = activities.filter((activity) => activity[key] === value);
     }
     activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    return sendJSON(res, 200, activities);
+    return respondWithJSON(res, 200, activities, req);
   }
 
   if (method === 'POST' && url === activitiesBase) {
@@ -1254,7 +1645,32 @@ async function handleAPI(req, res) {
 recoverCoordinatedWrite();
 
 const server = http.createServer(async (req, res) => {
+  const reqId = crypto.randomBytes(4).toString('hex');
+  const startTime = Date.now();
+  // Patch res.end to log the completed request on finish
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    if (req.url?.startsWith('/api/')) {
+      logEvent('info', 'API request', { reqId, method: req.method, url: req.url, status: res.statusCode, duration });
+    }
+  });
   try {
+    // Auth check for all non-API requests (must come before API routing)
+    if (!req.url.startsWith('/api/') && !isPublicPath(req.url)) {
+      const cookies = parseCookies(req);
+      const token = cookies[SESSION_COOKIE];
+      if (!getSession(token)) {
+        // Redirect to login for page requests, serve login for direct login access
+        const urlPath = req.url.split('?')[0];
+        if (urlPath !== '/login' && urlPath !== '/login.html') {
+          res.writeHead(302, { Location: '/login' });
+          res.end();
+          return;
+        }
+        // Allow login page to render
+      }
+    }
+
     if (req.url.startsWith('/api/')) {
       await handleAPI(req, res);
       return;
@@ -1268,9 +1684,30 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.timeout = 30000; // 30s idle timeout
+
+// Graceful shutdown — flush pending writes, then exit.
+function shutdown(signal) {
+  logEvent('info', 'Shutdown signal received', { signal });
+  server.close(() => {
+    logEvent('info', 'Server closed');
+    process.exit(0);
+  });
+  // Force exit if graceful close takes too long
+  setTimeout(() => {
+    logEvent('warn', 'Forced shutdown after timeout');
+    process.exit(1);
+  }, 5000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 server.listen(PORT, () => {
   console.log('Northwind CRM running:');
   console.log(`  UI    ->  http://localhost:${PORT}`);
+  console.log(`  Login ->  http://localhost:${PORT}/login`);
   console.log(`  API   ->  http://localhost:${PORT}/api/companies`);
-  console.log(`  Agents ->  http://localhost:${PORT}/agents.md   (read first, then POST)`);
+  console.log(`  Agents (read then POST) ->  http://localhost:${PORT}/agents.md`);
+  console.log(`  Shared credentials: ${CRM_USERNAME} / <password from CRM_PASSWORD_HASH>`);
 });

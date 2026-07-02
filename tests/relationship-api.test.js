@@ -1,9 +1,12 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { spawn } = require('node:child_process');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = 18787;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -41,7 +44,7 @@ test.before(async () => {
   ], null, 2));
   server = spawn(process.execPath, ['server.js'], {
     cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir },
+    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await waitForServer();
@@ -217,7 +220,7 @@ test('relationship stores remain intact after a server restart', async () => {
   await new Promise((resolve) => server.once('exit', resolve));
   server = spawn(process.execPath, ['server.js'], {
     cwd: path.resolve(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir },
+    env: { ...process.env, PORT: String(PORT), CRM_DATA_DIR: dataDir, BYPASS_AUTH: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await waitForServer();

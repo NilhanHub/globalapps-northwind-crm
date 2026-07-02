@@ -1,11 +1,16 @@
 # Dependencies (none currently — zero-dependency Node — but future-proof)
 node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
 
 # Generated UI-refinement evidence (screenshots, reports, zips)
 Evidence/
 
 # Playwright capture artifacts
 .playwright-cli/
+.playwright-mcp/
 
 # OS / editor clutter
 .DS_Store
@@ -24,3 +29,14 @@ nul
 *.tmp
 .tmp-*
 .verify-*
+
+# Local secrets and session material
+.env
+.env.local
+.env.*.local
+.crm-sessions.json
+data/.crm-sessions.json
+data/.crm-transaction.json
+
+# Local worktrees
+.worktrees/
