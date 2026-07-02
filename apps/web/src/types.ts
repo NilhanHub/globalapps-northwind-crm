@@ -1,0 +1,4 @@
+import type { Activity, Company, Person, Route } from '@northwind/domain';
+
+export type BootstrapData = { companies: Company[]; people: Person[]; routes: Route[]; activities: Activity[] };
+export type Session = { authenticated: true; actor: string; expiresAt: string; csrfToken: string };

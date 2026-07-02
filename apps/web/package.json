@@ -1,0 +1,29 @@
+{
+  "name": "@northwind/web",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "latest",
+    "@dnd-kit/sortable": "latest",
+    "@dnd-kit/utilities": "latest",
+    "@hookform/resolvers": "latest",
+    "@northwind/api-client": "*",
+    "@northwind/domain": "*",
+    "@northwind/ui": "*",
+    "@tanstack/react-query": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-hook-form": "latest",
+    "react-router-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": { "@types/react": "latest", "@types/react-dom": "latest", "@vitejs/plugin-react": "latest", "vite": "latest" }
+}
