@@ -14,7 +14,9 @@ const page = await context.newPage();
 const consoleEntries: Array<{ type: string; text: string }> = [];
 const failedRequests: Array<{ url: string; status: number }> = [];
 page.on('console', (message) => consoleEntries.push({ type: message.type(), text: message.text() }));
-page.on('response', (response) => { if (response.status() >= 400) failedRequests.push({ url: response.url(), status: response.status() }); });
+page.on('response', (response) => {
+  if (response.status() >= 400) failedRequests.push({ url: response.url(), status: response.status() });
+});
 await page.goto(`${baseURL}/login`);
 await page.getByLabel('Username').fill(username);
 await page.getByLabel('Password').fill(password);
@@ -25,7 +27,10 @@ const responsive: Array<{ width: number; pageScrollWidth: number; viewportWidth:
 for (const width of breakpoints) {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
   await page.goto(`${baseURL}/companies`);
-  const dimensions = await page.evaluate(() => ({ pageScrollWidth: document.documentElement.scrollWidth, viewportWidth: document.documentElement.clientWidth }));
+  const dimensions = await page.evaluate(() => ({
+    pageScrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+  }));
   responsive.push({ width, ...dimensions, overflow: dimensions.pageScrollWidth > dimensions.viewportWidth });
   await page.screenshot({ path: resolve(output, `companies-${width}.png`), fullPage: false });
 }

@@ -91,28 +91,24 @@ export async function createApp(options: AppOptions) {
   app.setErrorHandler((error, request, reply) => {
     const err = error instanceof Error ? error : new Error('Unknown error');
     if (err instanceof ZodError) {
-      return void reply
-        .status(400)
-        .send({
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Check the highlighted fields and try again.',
-            fieldErrors: err.flatten().fieldErrors,
-            requestId: request.id,
-          },
-        });
+      return void reply.status(400).send({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Check the highlighted fields and try again.',
+          fieldErrors: err.flatten().fieldErrors,
+          requestId: request.id,
+        },
+      });
     }
     if (err instanceof DomainValidationError)
-      return void reply
-        .status(400)
-        .send({
-          error: {
-            code: err.code,
-            message: err.message,
-            ...(err.field ? { fieldErrors: { [err.field]: [err.message] } } : {}),
-            requestId: request.id,
-          },
-        });
+      return void reply.status(400).send({
+        error: {
+          code: err.code,
+          message: err.message,
+          ...(err.field ? { fieldErrors: { [err.field]: [err.message] } } : {}),
+          requestId: request.id,
+        },
+      });
     if (err instanceof DuplicateActiveRouteError)
       return void reply.status(409).send({ error: { code: err.code, message: err.message, requestId: request.id } });
     const statusCode = 'statusCode' in err ? Number(err.statusCode) : 0;

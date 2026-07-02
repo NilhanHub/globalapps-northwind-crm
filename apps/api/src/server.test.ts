@@ -299,9 +299,16 @@ describe('modular API server', () => {
 
   it('validates relationship patches and refuses silent route stage changes', async () => {
     const { app } = await fixture();
-    const invalid = await app.inject({ method: 'POST', url: '/api/companies', headers: { authorization: 'Bearer agent-secret' }, payload: { name: 'Bad enum', status: 'Maybe' } });
+    const invalid = await app.inject({
+      method: 'POST',
+      url: '/api/companies',
+      headers: { authorization: 'Bearer agent-secret' },
+      payload: { name: 'Bad enum', status: 'Maybe' },
+    });
     expect(invalid.statusCode).toBe(400);
-    expect(invalid.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR', fieldErrors: { status: expect.any(Array) } } });
+    expect(invalid.json()).toMatchObject({
+      error: { code: 'VALIDATION_ERROR', fieldErrors: { status: expect.any(Array) } },
+    });
     const company = (
       await app.inject({
         method: 'POST',
