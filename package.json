@@ -4,14 +4,19 @@
   "description": "Northwind relationship intelligence CRM.",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "concurrently -n api,web -c burgundy,cyan \"npm run dev -w @northwind/api\" \"npm run dev -w @northwind/web\"",
     "start": "npm run start -w @northwind/api",
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test:unit && npm run test:legacy",
+    "test": "npm run test:unit && npm run test:legacy && npm run test:cloud",
     "test:unit": "vitest run",
     "test:legacy": "node --test tests/*.test.js",
+    "test:cloud": "node --test infra/functions/**/*.test.cjs",
+    "test:firestore-emulator": "npx --yes firebase-tools@15.6.0 emulators:exec --only firestore --project demo-northwind-crm \"npx vitest run apps/api/src/repositories/firestore-emulator.test.ts\"",
     "test:e2e": "playwright test",
     "start:e2e": "tsx scripts/start-e2e.ts",
     "evidence:capture": "tsx scripts/capture-evidence.ts",
@@ -20,15 +25,26 @@
     "format:check": "prettier --check .",
     "format": "prettier --write .",
     "data:migrate": "tsx scripts/migrate-data.ts",
+    "data:migrate:firestore": "tsx scripts/migrate-firestore.ts --dry-run --gcloud-user",
+    "data:migrate:firestore:apply": "tsx scripts/migrate-firestore.ts --apply --gcloud-user",
     "auth:hash-password": "tsx scripts/hash-password.ts"
   },
-  "engines": { "node": ">=20.0.0" },
-  "keywords": ["crm", "relationships", "d365", "sales"],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "crm",
+    "relationships",
+    "d365",
+    "sales"
+  ],
   "license": "UNLICENSED",
-  "overrides": { "esbuild": ">=0.28.1" },
+  "overrides": {
+    "esbuild": ">=0.28.1"
+  },
   "devDependencies": {
-    "@eslint/js": "latest",
     "@axe-core/playwright": "latest",
+    "@eslint/js": "latest",
     "@playwright/test": "latest",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
@@ -43,8 +59,8 @@
     "globals": "latest",
     "jsdom": "latest",
     "prettier": "latest",
-    "tsx": "latest",
     "tsup": "latest",
+    "tsx": "latest",
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vite": "latest",

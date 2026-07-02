@@ -1,16 +1,16 @@
 import { createApiClient } from '@northwind/api-client';
 
 let csrfToken = '';
-let unauthorizedHandler = () => {};
+let unauthorizedHandler: (code: string) => void = () => undefined;
 
 export const api = createApiClient({
   getCsrfToken: () => csrfToken,
-  onUnauthorized: () => unauthorizedHandler(),
+  onUnauthorized: (code) => unauthorizedHandler(code),
 });
 
 export const setCsrfToken = (token: string) => {
   csrfToken = token;
 };
-export const onUnauthorized = (handler: () => void) => {
+export const onUnauthorized = (handler: (code: string) => void) => {
   unauthorizedHandler = handler;
 };

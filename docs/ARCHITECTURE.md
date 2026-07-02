@@ -3,10 +3,12 @@
 Northwind is a workspace monorepo. HTTP, authentication, storage and UI are adapters around `packages/domain`.
 
 ```text
-React web -> typed API client -> Fastify routes -> request context -> domain rules -> repository interface -> JSON adapter
+React web -> typed API client -> Fastify routes -> request context -> domain rules -> repository interface -> Firestore
 ```
 
-`RequestContext { actor, authType, workspaceId, requestId }` crosses the API boundary. Domain code never reads cookies or environment variables. JSON is the active local adapter; a future database adapter can implement the same workspace-scoped operations without changing product workflows. `AuthProvider` similarly isolates shared login from a future OIDC or managed identity provider.
+`RequestContext { actor, authType, workspaceId, requestId }` crosses the API boundary. Domain code never reads cookies or environment variables. Firestore is the production adapter and JSON is retained for isolated development and migration. `AuthProvider` similarly isolates shared login from a future OIDC or managed identity provider.
+
+Production data lives beneath `workspaces/default/{companies,people,routes,activities,sessions}`. Only the Fastify server holds Google credentials; Firestore browser rules deny all direct access. Repository transactions reject stale versions before committing multi-record changes.
 
 The legacy root server and static frontend remain as a compatibility reference until parity evidence is accepted. New development belongs in workspaces.
 
@@ -16,4 +18,4 @@ Records normalize to workspace `default` and version `1`. Clients send `If-Match
 
 ## Deployment boundary
 
-The API serves the production web build and binds to loopback by default. Nginx or another TLS reverse proxy is the public boundary. Data, secrets, sessions and logs must live outside the repository in deployment.
+The API serves the production web build and binds to Hostinger's assigned interface. Hostinger TLS is the public boundary at `crm.globalapps.world`. Firestore is the only production data store. Secrets live in Hostinger environment configuration, while sessions and backup metadata live in Google Cloud.

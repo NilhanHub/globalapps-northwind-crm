@@ -18,8 +18,8 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { AuthService } from './auth/auth-service.js';
-import type { JsonRepository } from './repositories/json-repository.js';
-import { RecordNotFoundError, VersionConflictError } from './repositories/json-repository.js';
+import type { CrmRepository } from './repositories/repository.js';
+import { RecordNotFoundError, VersionConflictError } from './repositories/repository.js';
 import { ZodError } from 'zod';
 
 const SESSION_COOKIE = 'northwind_session';
@@ -33,7 +33,7 @@ const safeHashEqual = (left: string, right: string) => {
 };
 
 type AppOptions = {
-  repository: JsonRepository;
+  repository: CrmRepository;
   authService: AuthService;
   secureCookies: boolean;
   agentTokenHash?: string;
@@ -45,14 +45,32 @@ type AppOptions = {
 declare module 'fastify' {
   interface FastifyRequest {
     requestContext?: RequestContext & { csrfHash?: string; sessionTokenHash?: string; expiresAt?: string };
+    authFailureReason?: 'idle_timeout' | 'invalid_session';
   }
 }
 
 export async function createApp(options: AppOptions) {
   const app = Fastify({ logger: false, bodyLimit: 100 * 1024, trustProxy: true, requestIdHeader: 'x-request-id' });
   await app.register(cookie);
-  await app.register(helmet, { contentSecurityPolicy: false });
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+  });
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (request.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
+    return payload;
+  });
   if (options.logRequests)
     app.addHook('onResponse', async (request, reply) => {
       console.log(
@@ -155,12 +173,26 @@ export async function createApp(options: AppOptions) {
       return;
     }
     const token = request.cookies[SESSION_COOKIE];
-    const context = token ? await options.authService.authenticateSession(token) : null;
+    const result = token ? await options.authService.authenticateSessionDetailed(token) : null;
+    const context = result?.authenticated ? result.context : null;
+    if (result && !result.authenticated) {
+      request.authFailureReason = result.reason;
+      reply.clearCookie(SESSION_COOKIE, { path: '/' });
+      reply.clearCookie(CSRF_COOKIE, { path: '/' });
+    }
     if (!context && path === '/api/auth/session') return;
-    if (!context)
-      return reply
-        .status(401)
-        .send({ error: { code: 'AUTH_REQUIRED', message: 'Sign in to continue.', requestId: request.id } });
+    if (!context) {
+      const idle = request.authFailureReason === 'idle_timeout';
+      return reply.status(401).send({
+        error: {
+          code: idle ? 'SESSION_IDLE_TIMEOUT' : 'SESSION_INVALID',
+          message: idle
+            ? 'You were automatically logged out after 16 hours of inactivity. Please sign in again.'
+            : 'Sign in to continue.',
+          requestId: request.id,
+        },
+      });
+    }
     request.requestContext = { ...context, requestId: request.id };
   });
 
@@ -185,7 +217,10 @@ export async function createApp(options: AppOptions) {
     }
   });
 
-  app.get('/api/health', async () => ({ status: 'ok', service: 'northwind-api', time: new Date().toISOString() }));
+  app.get('/api/health', async () => {
+    await options.repository.healthCheck();
+    return { status: 'ok', service: 'northwind-api', repository: 'available', time: new Date().toISOString() };
+  });
 
   app.post('/api/auth/login', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = request.body as { username?: string; password?: string };
@@ -199,21 +234,22 @@ export async function createApp(options: AppOptions) {
       sameSite: 'strict',
       secure: options.secureCookies,
       path: '/',
-      maxAge: 12 * 60 * 60,
     });
     reply.setCookie(CSRF_COOKIE, session.csrfToken, {
       httpOnly: false,
       sameSite: 'strict',
       secure: options.secureCookies,
       path: '/',
-      maxAge: 12 * 60 * 60,
     });
     return { authenticated: true, actor: session.actor, expiresAt: session.expiresAt, csrfToken: session.csrfToken };
   });
 
   app.get('/api/auth/session', async (request) => {
     const context = request.requestContext;
-    if (!context) return { authenticated: false };
+    if (!context)
+      return request.authFailureReason
+        ? { authenticated: false, reason: request.authFailureReason }
+        : { authenticated: false };
     const csrfToken = request.cookies[CSRF_COOKIE] ?? '';
     return {
       authenticated: true,
@@ -516,14 +552,14 @@ export async function createApp(options: AppOptions) {
     const now = new Date().toISOString();
     const changed = routes.map((route) =>
       ids.has(route.id)
-        ? {
+        ? routeSchema.parse({
             ...route,
             ...(body.owner !== undefined ? { owner: body.owner } : {}),
             ...(body.dueDate !== undefined ? { dueDate: body.dueDate } : {}),
             ...(body.nextAction !== undefined ? { nextAction: body.nextAction } : {}),
             updatedAt: now,
             version: route.version + 1,
-          }
+          })
         : route,
     );
     const activityRecords = changed
@@ -994,7 +1030,7 @@ export async function createApp(options: AppOptions) {
           statusCode: 409,
           code: 'DEPENDENCIES_EXIST',
         });
-      await options.repository.transaction({ companies: companies.filter((company) => company.id !== id) });
+      await options.repository.delete('companies', id, record.version, context.workspaceId);
     } else if (collection === 'people') {
       const record = people.find((person) => person.id === id);
       if (!record) throw new RecordNotFoundError(id);
@@ -1011,7 +1047,7 @@ export async function createApp(options: AppOptions) {
           statusCode: 409,
           code: 'DEPENDENCIES_EXIST',
         });
-      await options.repository.transaction({ people: people.filter((person) => person.id !== id) });
+      await options.repository.delete('people', id, record.version, context.workspaceId);
     } else {
       const record = routes.find((route) => route.id === id);
       if (!record) throw new RecordNotFoundError(id);
@@ -1025,7 +1061,7 @@ export async function createApp(options: AppOptions) {
           statusCode: 409,
           code: 'DEPENDENCIES_EXIST',
         });
-      await options.repository.transaction({ routes: routes.filter((route) => route.id !== id) });
+      await options.repository.delete('routes', id, record.version, context.workspaceId);
     }
     return { ok: true };
   });

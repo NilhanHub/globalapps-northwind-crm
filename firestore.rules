@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Northwind browsers never connect to Firestore directly. The server uses
+    // a least-privileged service account, which is governed by IAM.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

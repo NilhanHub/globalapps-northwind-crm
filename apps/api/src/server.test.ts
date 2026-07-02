@@ -10,7 +10,7 @@ import { createApp } from './server.js';
 const dirs: string[] = [];
 afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 
-async function fixture() {
+async function fixture(options: { now?: () => Date; repositoryUnavailable?: boolean } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'northwind-api-'));
   dirs.push(dir);
   for (const name of ['companies', 'people', 'routes', 'activities']) writeFileSync(join(dir, `${name}.json`), '[]\n');
@@ -19,17 +19,35 @@ async function fixture() {
     username: 'northwind',
     passwordHash: await hashPassword('a-secure-password'),
     sessionRepository: {
-      list: async () => sessions,
-      replace: async (next) => {
-        sessions.splice(0, sessions.length, ...next);
+      find: async (tokenHash) => sessions.find((session) => session.tokenHash === tokenHash),
+      create: async (session) => {
+        const index = sessions.findIndex((candidate) => candidate.tokenHash === session.tokenHash);
+        if (index < 0) sessions.push(session);
+        else sessions[index] = session;
+      },
+      touch: async (tokenHash, updates) => {
+        const index = sessions.findIndex((candidate) => candidate.tokenHash === tokenHash);
+        if (index < 0) return undefined;
+        sessions[index] = { ...sessions[index], ...updates };
+        return sessions[index];
+      },
+      delete: async (tokenHash) => {
+        const index = sessions.findIndex((session) => session.tokenHash === tokenHash);
+        if (index >= 0) sessions.splice(index, 1);
       },
     },
+    ...(options.now ? { now: options.now } : {}),
   });
   const publicDir = join(dir, 'public');
   await import('node:fs').then(({ mkdirSync }) => mkdirSync(publicDir));
   writeFileSync(join(publicDir, 'index.html'), '<!doctype html><title>Northwind React</title>');
+  const repository = createJsonRepository(dir);
+  if (options.repositoryUnavailable)
+    repository.healthCheck = async () => {
+      throw Object.assign(new Error('Cloud unavailable'), { code: 'FIRESTORE_UNAVAILABLE', statusCode: 503 });
+    };
   const app = await createApp({
-    repository: createJsonRepository(dir),
+    repository,
     authService: auth,
     secureCookies: false,
     agentTokenHash: createHash('sha256').update('agent-secret').digest('hex'),
@@ -50,6 +68,14 @@ describe('modular API server', () => {
     await app.close();
   });
 
+  it('reports repository failure instead of claiming a healthy service', async () => {
+    const { app } = await fixture({ repositoryUnavailable: true });
+    const health = await app.inject({ method: 'GET', url: '/api/health' });
+    expect(health.statusCode).toBe(503);
+    expect(health.json()).toMatchObject({ error: { code: 'FIRESTORE_UNAVAILABLE' } });
+    await app.close();
+  });
+
   it('creates a secure session and returns typed bootstrap data', async () => {
     const { app } = await fixture();
     const login = await app.inject({
@@ -60,6 +86,7 @@ describe('modular API server', () => {
     expect(login.statusCode).toBe(200);
     expect(String(login.headers['set-cookie'])).toContain('HttpOnly');
     expect(String(login.headers['set-cookie'])).toContain('SameSite=Strict');
+    expect(String(login.headers['set-cookie'])).not.toMatch(/Max-Age|Expires=/i);
     const cookie = login.cookies[0]!;
     const session = login.json<{ csrfToken: string }>();
     const csrfCookie = login.cookies.find((item) => item.name === 'northwind_csrf')!;
@@ -77,6 +104,27 @@ describe('modular API server', () => {
     expect(bootstrap.statusCode).toBe(200);
     expect(bootstrap.json()).toMatchObject({ companies: [], people: [], routes: [], activities: [] });
     expect(session.csrfToken).toBeTruthy();
+    await app.close();
+  });
+
+  it('clears cookies and identifies a session that exceeded 16 hours of inactivity', async () => {
+    let current = new Date('2026-07-02T10:00:00.000Z');
+    const { app } = await fixture({ now: () => current });
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { username: 'northwind', password: 'a-secure-password' },
+    });
+    const sessionCookie = login.cookies.find((item) => item.name === 'northwind_session')!;
+    current = new Date('2026-07-03T02:00:00.001Z');
+    const expired = await app.inject({
+      method: 'GET',
+      url: '/api/auth/session',
+      cookies: { [sessionCookie.name]: sessionCookie.value },
+    });
+    expect(expired.statusCode).toBe(200);
+    expect(expired.json()).toEqual({ authenticated: false, reason: 'idle_timeout' });
+    expect(String(expired.headers['set-cookie'])).toContain('northwind_session=;');
     await app.close();
   });
 

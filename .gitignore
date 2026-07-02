@@ -43,3 +43,11 @@ data/.backups/
 
 # Local worktrees
 .worktrees/
+
+# Terraform state and local cloud inputs
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
