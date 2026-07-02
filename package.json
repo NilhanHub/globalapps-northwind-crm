@@ -12,6 +12,7 @@
     "dev": "concurrently -n api,web -c burgundy,cyan \"npm run dev -w @northwind/api\" \"npm run dev -w @northwind/web\"",
     "start": "npm run start -w @northwind/api",
     "build": "npm run build --workspaces --if-present",
+    "postinstall": "npm run build",
     "test": "npm run test:unit && npm run test:legacy && npm run test:cloud",
     "test:unit": "vitest run",
     "test:legacy": "node --test tests/*.test.js",
