@@ -27,6 +27,7 @@ nul
 # Logs & temp files
 *.log
 *.tmp
+*.tsbuildinfo
 .tmp-*
 .verify-*
 

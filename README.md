@@ -1,69 +1,57 @@
 # Northwind CRM
 
-Boutique D365 opportunity-tracking CRM for tracking outreach to UK/IE accounts.
-A single-user shared-state CRM — every authenticated visitor sees the same data.
+Northwind is a relationship-intelligence CRM for turning trusted mutual contacts into warm introductions. It is a typed React application with an authenticated Node API and conflict-safe JSON persistence.
 
-## Tech Stack
+## Architecture
 
-- **Runtime**: Node.js >= 18 (tested on 22)
-- **Dependencies**: Zero. Pure Node.js `http` server, vanilla JS frontend.
-- **Persistence**: Flat-file JSON (`companies.json`, `people.json`, `routes.json`, `activities.json`)
-- **Auth**: Server-side session with SHA-256 password hash, `HttpOnly` cookie
-- **Design**: Warm cream + burgundy palette, editorial serif display, premium boutique UI
+- `apps/web` — React, Vite and TypeScript product UI.
+- `apps/api` — Fastify HTTP, authentication, security controls and static delivery.
+- `packages/domain` — storage-independent entities, schemas and business rules.
+- `packages/api-client` — typed fetch client and structured errors.
+- `packages/ui` — design tokens and accessible shared components.
+- `data` — ignored local JSON copies created by the migration command.
+- `server.js` and `public` — preserved compatibility implementation; the workspace app is authoritative.
 
-## Quick Start
+Every record is scoped by `workspaceId`. Missing values normalize to `default`, so the active local dataset requires no destructive migration. Domain services do not depend on the current shared-login provider or JSON repository adapter.
 
-```bash
-node server.js
+## Local setup
+
+Requires Node.js 20 or newer.
+
+```powershell
+npm ci
+$env:CRM_PASSWORD_PLAINTEXT = 'choose-a-long-password'
+$env:CRM_PASSWORD_SCRYPT = npm run auth:hash-password --silent
+Remove-Item Env:CRM_PASSWORD_PLAINTEXT
+$env:CRM_USERNAME = 'northwind'
+npm run data:migrate
+npm run build
+npm start
 ```
 
-Open `http://localhost:8787` — you'll be redirected to `/login`.
+Open `http://127.0.0.1:8787`. Production startup deliberately fails when `CRM_USERNAME` or `CRM_PASSWORD_SCRYPT` is absent.
 
-## Environment Variables
+## Commands
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `8787` | Server listen port |
-| `CRM_DATA_DIR` | `.` (project root) | Directory for JSON data files |
-| `CRM_USERNAME` | `1bt-user` | Login username |
-| `CRM_PASSWORD_HASH` | (see below) | SHA-256 hex of the password |
-| `BYPASS_AUTH` | (unset) | Set to `1` to disable auth (testing only) |
-| `NODE_ENV` | (unset) | Set to `production` for Hostinger |
-
-### Setting the Password
-
-The default password hash is for `1bt-pass`. To set a custom password:
-
-```bash
-node -e "console.log(require('crypto').createHash('sha256').update('your-password').digest('hex'))"
+```text
+npm run dev          API and Vite development servers
+npm run build        production builds for every workspace
+npm run typecheck    strict TypeScript checks
+npm run lint         ESLint quality checks
+npm run format:check Prettier verification
+npm test             unit, integration and compatibility suites
+npm run test:e2e     Playwright smoke journeys
+npm run data:migrate idempotently copy and validate root stores into data/
 ```
 
-Then set `CRM_PASSWORD_HASH` to the output.
+## Security model
 
-## Scripts
+This release uses one shared account. It is an access gate, not user isolation. Sessions store only hashed tokens, browser mutations require per-session CSRF tokens, and production cookies are `HttpOnly`, `SameSite=Strict` and `Secure`. Desktop agents use `Authorization: Bearer <CRM_AGENT_TOKEN>` and may provide a sanitized `X-Agent-Name`.
 
-- `npm test` — runs 22 API + UI contract tests
-- `npm run start` — `node server.js`
+Do not commit `.env`, agent tokens, session files or generated data. See [SECURITY.md](SECURITY.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DATA_RECOVERY.md](docs/DATA_RECOVERY.md).
 
-## Project Structure
+## Data safety
 
-```
-CRM/
-├── server.js          # Backend API server
-├── public/
-│   ├── index.html     # SPA shell
-│   ├── login.html     # Login page
-│   ├── styles.css     # Design system (1919 lines)
-│   ├── app.js         # Main SPA (companies CRUD, views)
-│   ├── people.js      # People workspace
-│   ├── relationships.js # Route tracker
-│   └── ui.js          # Shared UI helpers, SVG icons
-├── tests/
-│   ├── hardening-api.test.js
-│   ├── relationship-api.test.js
-│   └── ui-contract.test.js
-├── Data/              # JSON data files (auto-created)
-├── Evidence/          # Audit, design, and deployment docs
-├── AUTH.md            # Credential reference
-└── README.md
-```
+Migration never deletes the four root stores. JSON mutations are serialized, schema-validated and atomically journaled; records carry optimistic versions and stale writes return `409`. Archive is distinct from Won/Dead and is reversible by operation ID.
+
+This repository is private and unlicensed. See [UNLICENSED](UNLICENSED).

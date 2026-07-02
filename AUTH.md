@@ -1,17 +1,20 @@
-# Authentication Plan
+# Authentication
 
-## Model
-Single shared credentials for all users — no per-user isolation, no multi-tenancy.
+Northwind currently provides secured shared access. It does not implement individual users, roles or tenant administration.
 
-| Field    | Value      |
-|----------|------------|
-| Username | `1bt-user` |
-| Password | `1bt-pass` |
+- Passwords are stored as salted `scrypt` hashes (`CRM_PASSWORD_SCRYPT`).
+- Session and CSRF tokens are random; only their hashes are persisted.
+- Session cookies are `HttpOnly`, `SameSite=Strict`, scoped to `/`, and `Secure` in production.
+- Browser writes require `X-CSRF-Token`.
+- Desktop agents use a separately configured `CRM_AGENT_TOKEN`; it is never accepted from application data.
+- Audit actors are derived from the authenticated request context.
 
-## Rules
-- Every visitor sees the exact same application state. No multi-tenancy.
-- The auth gate exists only to prevent anonymous access, not to isolate data.
-- When implemented, the login flow should be a simple session cookie or token check.
+Generate a password hash without placing a plaintext password in command history:
 
-## Implementation Status
-Not yet implemented. See `server.js` TENANT_MODE constants — these are inert and will be replaced with a single shared auth gate when login is added.
+```powershell
+$env:CRM_PASSWORD_PLAINTEXT = Read-Host 'Password'
+npm run auth:hash-password
+Remove-Item Env:CRM_PASSWORD_PLAINTEXT
+```
+
+`AuthProvider` and `RequestContext` are replaceable boundaries for a future identity provider. Shared login must not be represented as per-user security.

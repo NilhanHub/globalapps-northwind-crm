@@ -1,121 +1,15 @@
-# Hostinger VPS Deployment Guide
+# Hostinger VPS deployment
 
-## Prerequisites
+This guide is provider-specific operational guidance; no deployment is performed by the repository.
 
-- A Hostinger VPS with Ubuntu 22.04+ (or any Debian-based distro)
-- SSH access to the VPS
-- A domain pointed to the VPS IP (optional)
+1. Install Node.js 22 and Nginx on a supported Ubuntu LTS host.
+2. Place application code under `/opt/northwind-crm`, data under `/var/lib/northwind-crm`, secrets in a root-readable environment file outside the repository, and logs under `/var/log/northwind-crm`.
+3. Run `npm ci`, `npm run build`, `npm test`, and `npm run data:migrate` as the service account.
+4. Configure `CRM_USERNAME`, a generated `CRM_PASSWORD_SCRYPT`, optional `CRM_AGENT_TOKEN`, `CRM_DATA_DIR=/var/lib/northwind-crm`, `NODE_ENV=production`, `HOST=127.0.0.1`, and `PORT=8787`.
+5. Start `node apps/api/dist/index.js` with systemd or PM2. Do not expose port 8787 through the firewall.
+6. Proxy HTTPS traffic through Nginx to `http://127.0.0.1:8787`; forward `Host`, `X-Real-IP`, `X-Forwarded-For`, and `X-Forwarded-Proto`. Redirect HTTP to HTTPS. Do not enable login before a valid certificate is active.
+7. Monitor `GET /api/health`, rotate structured logs, and back up `/var/lib/northwind-crm` on a tested schedule.
 
-## Step 1 — SSH In
+Before each release, copy the current data directory and application build to timestamped rollback locations. Deploy the new build, run the health and authenticated smoke checks, then retain the previous application build and data snapshot until verification is complete. Rollback means stopping the service, restoring both matching application and data snapshots, and restarting behind Nginx.
 
-```bash
-ssh root@<your-vps-ip>
-```
-
-## Step 2 — Install Node.js
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get install -y nodejs
-node --version   # Should be 22.x
-```
-
-## Step 3 — Clone the Repository
-
-```bash
-git clone https://github.com/<your-org>/CRM.git /opt/northwind-crm
-cd /opt/northwind-crm
-```
-
-## Step 4 — Set Environment Variables
-
-```bash
-# Generate a password hash
-PASS_HASH=$(node -e "console.log(require('crypto').createHash('sha256').update('your-secure-password').digest('hex'))")
-
-cat >> /opt/northwind-crm/.env <<EOF
-PORT=8787
-CRM_USERNAME=1bt-user
-CRM_PASSWORD_HASH=$PASS_HASH
-NODE_ENV=production
-EOF
-```
-
-## Step 5 — Install PM2 (Production Process Manager)
-
-```bash
-npm install -g pm2
-pm2 start server.js --name northwind-crm
-pm2 save
-pm2 startup   # Follow the instructions to enable auto-start on reboot
-```
-
-## Step 6 — Firewall
-
-```bash
-ufw allow 8787/tcp
-ufw enable
-```
-
-The app is now running at `http://<your-vps-ip>:8787`.
-
-## Step 7 — Optional: Reverse Proxy with Nginx
-
-If you want to serve on port 80/443 with a domain:
-
-```bash
-apt-get install -y nginx certbot python3-certbot-nginx
-```
-
-Create `/etc/nginx/sites-available/northwind-crm`:
-
-```nginx
-server {
-    listen 80;
-    server_name crm.yourdomain.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:8787;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-```bash
-ln -s /etc/nginx/sites-available/northwind-crm /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-certbot --nginx -d crm.yourdomain.com
-```
-
-## Step 8 — Verify
-
-Visit your domain or IP. You should see the login page.
-Login with `1bt-user` and the password you set.
-
-## Useful PM2 Commands
-
-- `pm2 status` — check if the app is running
-- `pm2 logs northwind-crm` — tail the logs
-- `pm2 restart northwind-crm` — restart after config changes
-- `pm2 stop northwind-crm` — stop the app
-
-## Data Directory
-
-Data files are stored in the project root by default.
-Set `CRM_DATA_DIR` to a persistent path if needed:
-
-```bash
-export CRM_DATA_DIR=/var/lib/northwind-crm
-pm2 restart northwind-crm
-```
-
-## Updating
-
-```bash
-cd /opt/northwind-crm
-git pull
-pm2 restart northwind-crm
-```
+Never put credentials in this document, the PM2 ecosystem file, shell history, or Git. See `docs/DATA_RECOVERY.md` for recovery details.

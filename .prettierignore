@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+Evidence
+data
+public
+server.js
+tests
+package-lock.json
+*.json
