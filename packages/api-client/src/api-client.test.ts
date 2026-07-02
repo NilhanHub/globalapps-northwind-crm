@@ -33,4 +33,18 @@ describe('typed API client', () => {
       requestId: 'req-1',
     } satisfies Partial<ApiError>);
   });
+
+  it('passes the structured session failure code to the unauthorized handler', async () => {
+    const onUnauthorized = vi.fn();
+    const fetcher = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { code: 'SESSION_IDLE_TIMEOUT', message: 'Sign in again' } }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    );
+    const client = createApiClient({ fetcher, onUnauthorized });
+    await expect(client.request('/api/bootstrap')).rejects.toBeInstanceOf(ApiError);
+    expect(onUnauthorized).toHaveBeenCalledWith('SESSION_IDLE_TIMEOUT');
+  });
 });

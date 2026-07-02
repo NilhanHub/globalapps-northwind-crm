@@ -10,31 +10,15 @@ import {
   copyFileSync,
 } from 'node:fs';
 import { basename, join } from 'node:path';
-import { activitySchema, companySchema, normalizeRecordScope, personSchema, routeSchema } from '@northwind/domain';
-import type { z } from 'zod';
-
-const schemas = {
-  companies: companySchema,
-  people: personSchema,
-  routes: routeSchema,
-  activities: activitySchema,
-} as const;
-export type StoreName = keyof typeof schemas;
-type StoreRecord<S extends StoreName> = z.infer<(typeof schemas)[S]>;
-
-export class VersionConflictError extends Error {
-  readonly code = 'VERSION_CONFLICT';
-  constructor(readonly currentVersion: number) {
-    super('This record changed after it was loaded. Refresh and try again.');
-  }
-}
-
-export class RecordNotFoundError extends Error {
-  readonly code = 'NOT_FOUND';
-  constructor(id: string) {
-    super(`Record not found: ${id}`);
-  }
-}
+import { normalizeRecordScope } from '@northwind/domain';
+import {
+  RecordNotFoundError,
+  VersionConflictError,
+  storeSchemas as schemas,
+  type CrmRepository,
+  type StoreName,
+  type StoreRecord,
+} from './repository.js';
 
 function atomicWrite(file: string, value: unknown) {
   mkdirSync(join(file, '..'), { recursive: true });
@@ -43,7 +27,7 @@ function atomicWrite(file: string, value: unknown) {
   renameSync(temp, file);
 }
 
-export function createJsonRepository(dataDir: string) {
+export function createJsonRepository(dataDir: string): CrmRepository & { recover(): void } {
   const journalFile = join(dataDir, '.crm-transaction.json');
   const backupDir = join(dataDir, '.backups');
   let mutationTail: Promise<unknown> = Promise.resolve();
@@ -123,6 +107,10 @@ export function createJsonRepository(dataDir: string) {
   }
 
   return {
+    async healthCheck() {
+      read('companies');
+    },
+
     async list<S extends StoreName>(store: S, workspaceId: string): Promise<StoreRecord<S>[]> {
       return read(store).filter((record) => record.workspaceId === workspaceId);
     },
@@ -174,8 +162,19 @@ export function createJsonRepository(dataDir: string) {
       return serialize(() => writeMany(changes));
     },
 
+    delete<S extends StoreName>(store: S, id: string, expectedVersion: number, workspaceId: string): Promise<void> {
+      return serialize(() => {
+        const records = read(store);
+        const current = records.find((record) => record.id === id && record.workspaceId === workspaceId);
+        if (!current) throw new RecordNotFoundError(id);
+        if (current.version !== expectedVersion) throw new VersionConflictError(current.version);
+        writeMany({ [store]: records.filter((record) => record !== current) });
+      });
+    },
+
     recover,
   };
 }
 
 export type JsonRepository = ReturnType<typeof createJsonRepository>;
+export { RecordNotFoundError, VersionConflictError } from './repository.js';

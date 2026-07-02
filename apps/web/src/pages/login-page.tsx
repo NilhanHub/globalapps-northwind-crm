@@ -47,6 +47,11 @@ export function LoginPage() {
           <span className="panel-eyebrow">Secure shared access</span>
           <h2>Welcome back</h2>
           <p>Sign in to open the Northwind relationship desk.</p>
+          {auth.logoutReason === 'idle_timeout' ? (
+            <div className="form-alert form-alert--notice" role="status">
+              You were automatically logged out after 16 hours of inactivity. Please sign in again.
+            </div>
+          ) : null}
           {error ? (
             <div className="form-alert" role="alert">
               {error}

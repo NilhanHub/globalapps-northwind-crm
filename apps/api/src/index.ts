@@ -6,12 +6,18 @@ import { createAuthService } from './auth/auth-service.js';
 import { migrateDataStores } from './migration.js';
 import { createJsonRepository } from './repositories/json-repository.js';
 import { createFileSessionRepository } from './repositories/session-repository.js';
+import { createFirestoreRepository } from './repositories/firestore-repository.js';
+import { createFirestoreSessionRepository } from './repositories/firestore-session-repository.js';
+import { createFirebaseFirestore } from './firebase.js';
+import { resolveRepositoryConfig } from './runtime-config.js';
 import { createApp } from './server.js';
 
 const root = resolve(process.cwd());
 const dataDir = resolve(process.env.CRM_DATA_DIR || resolve(root, 'data'));
+const repositoryConfig = resolveRepositoryConfig(process.env);
 const requiredStores = ['companies', 'people', 'routes', 'activities'];
-if (!requiredStores.every((name) => existsSync(resolve(dataDir, `${name}.json`)))) migrateDataStores(root, dataDir);
+if (repositoryConfig.mode === 'json' && !requiredStores.every((name) => existsSync(resolve(dataDir, `${name}.json`))))
+  migrateDataStores(root, dataDir);
 
 const username = process.env.CRM_USERNAME?.trim() ?? '';
 const passwordHash = process.env.CRM_PASSWORD_SCRYPT?.trim() ?? '';
@@ -25,11 +31,22 @@ const allowedOrigins = (process.env.CRM_CORS_ORIGINS ?? '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const repository = createJsonRepository(dataDir);
+const firestore =
+  repositoryConfig.mode === 'firestore'
+    ? createFirebaseFirestore({
+        projectId: repositoryConfig.projectId,
+        ...(repositoryConfig.serviceAccountBase64
+          ? { serviceAccountBase64: repositoryConfig.serviceAccountBase64 }
+          : {}),
+      })
+    : null;
+const repository = firestore ? createFirestoreRepository(firestore) : createJsonRepository(dataDir);
 const authService = createAuthService({
   username,
   passwordHash,
-  sessionRepository: createFileSessionRepository(resolve(dataDir, '.crm-sessions.json')),
+  sessionRepository: firestore
+    ? createFirestoreSessionRepository(firestore)
+    : createFileSessionRepository(resolve(dataDir, '.crm-sessions.json')),
 });
 const app = await createApp({
   repository,
@@ -42,7 +59,7 @@ const app = await createApp({
 });
 
 const port = Number(process.env.PORT || 8787);
-const host = process.env.HOST || '127.0.0.1';
+const host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 await app.listen({ port, host });
 console.log(
   JSON.stringify({ time: new Date().toISOString(), level: 'info', msg: 'Northwind API listening', host, port }),

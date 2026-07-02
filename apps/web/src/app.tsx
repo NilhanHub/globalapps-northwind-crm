@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './app-shell';
 import { AuthProvider, useAuth } from './auth';
@@ -16,10 +16,7 @@ import { ArchivedPage } from './pages/archived-page';
 import { EntityDialog, type EntityDialogKind } from './components/entity-dialog';
 import { ApiError } from '@northwind/api-client';
 import { RouteDetailPage } from './pages/route-detail-page';
-
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 20_000, retry: 1, refetchOnWindowFocus: false } },
-});
+import { queryClient } from './query-client';
 
 function ProtectedApp() {
   const auth = useAuth();

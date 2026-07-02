@@ -23,7 +23,7 @@ export function createApiClient(
   options: {
     fetcher?: typeof fetch;
     getCsrfToken?: () => string;
-    onUnauthorized?: () => void;
+    onUnauthorized?: (code: string) => void;
   } = {},
 ) {
   const fetcher = options.fetcher ?? fetch;
@@ -49,11 +49,11 @@ export function createApiClient(
       };
       if (body !== undefined) requestInit.body = JSON.stringify(body);
       const response = await fetcher(path, requestInit);
-      if (response.status === 401) options.onUnauthorized?.();
       const text = await response.text();
       const payload = text ? (JSON.parse(text) as T | { error?: StructuredError }) : undefined;
       if (!response.ok) {
         const error = (payload as { error?: StructuredError } | undefined)?.error;
+        if (response.status === 401) options.onUnauthorized?.(error?.code ?? 'SESSION_INVALID');
         throw new ApiError(
           response.status,
           error?.code ?? 'REQUEST_FAILED',

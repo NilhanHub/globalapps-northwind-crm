@@ -3,20 +3,27 @@ import { promisify } from 'node:util';
 import type { RequestContext } from '@northwind/domain';
 
 const scrypt = promisify(scryptCallback);
-const SESSION_IDLE_MS = 12 * 60 * 60 * 1000;
+const SESSION_IDLE_MS = 16 * 60 * 60 * 1000;
+const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
-type StoredSession = {
+export type StoredSession = {
   tokenHash: string;
   csrfHash: string;
   actor: string;
   workspaceId: string;
   createdAt: string;
+  lastSeenAt: string;
   expiresAt: string;
 };
 
-type SessionRepository = {
-  list(): Promise<Array<Record<string, unknown>>>;
-  replace(sessions: StoredSession[]): Promise<void>;
+export type SessionRepository = {
+  find(tokenHash: string): Promise<Record<string, unknown> | undefined>;
+  create(session: StoredSession): Promise<void>;
+  touch(
+    tokenHash: string,
+    updates: { lastSeenAt: string; expiresAt: string },
+  ): Promise<Record<string, unknown> | undefined>;
+  delete(tokenHash: string): Promise<void>;
 };
 
 type AuthContext = RequestContext & { csrfHash: string; sessionTokenHash: string; expiresAt: string };
@@ -50,12 +57,6 @@ export function createAuthService(options: {
 }) {
   const now = options.now ?? (() => new Date());
 
-  async function validSessions() {
-    const current = now().getTime();
-    const sessions = (await options.sessionRepository.list()) as unknown as StoredSession[];
-    return sessions.filter((session) => Date.parse(session.expiresAt) > current);
-  }
-
   return {
     async login(username: string, password: string) {
       const usernameMatches = safeEqual(username, options.username);
@@ -70,25 +71,60 @@ export function createAuthService(options: {
         actor: options.username,
         workspaceId: 'default',
         createdAt: createdAt.toISOString(),
+        lastSeenAt: createdAt.toISOString(),
         expiresAt: new Date(createdAt.getTime() + SESSION_IDLE_MS).toISOString(),
       };
-      await options.sessionRepository.replace([...(await validSessions()), session]);
+      await options.sessionRepository.create(session);
       return { token, csrfToken, actor: session.actor, expiresAt: session.expiresAt };
     },
 
-    async authenticateSession(token: string): Promise<AuthContext | null> {
+    async authenticateSessionDetailed(
+      token: string,
+    ): Promise<
+      | { authenticated: true; context: AuthContext }
+      | { authenticated: false; reason: 'idle_timeout' | 'invalid_session' }
+    > {
       const tokenHash = digest(token);
-      const session = (await validSessions()).find((candidate) => safeEqual(candidate.tokenHash, tokenHash));
-      if (!session) return null;
+      const stored = await options.sessionRepository.find(tokenHash);
+      if (!stored) return { authenticated: false, reason: 'invalid_session' };
+      const session = stored as StoredSession;
+      if (!safeEqual(session.tokenHash, tokenHash)) return { authenticated: false, reason: 'invalid_session' };
+      const current = now();
+      if (Date.parse(session.expiresAt) <= current.getTime()) {
+        await options.sessionRepository.delete(tokenHash);
+        return { authenticated: false, reason: 'idle_timeout' };
+      }
+      let active = session;
+      if (current.getTime() - Date.parse(session.lastSeenAt || session.createdAt) >= SESSION_TOUCH_INTERVAL_MS) {
+        active = {
+          ...session,
+          lastSeenAt: current.toISOString(),
+          expiresAt: new Date(current.getTime() + SESSION_IDLE_MS).toISOString(),
+        };
+        const touched = await options.sessionRepository.touch(tokenHash, {
+          lastSeenAt: active.lastSeenAt,
+          expiresAt: active.expiresAt,
+        });
+        if (!touched) return { authenticated: false, reason: 'invalid_session' };
+        active = touched as StoredSession;
+      }
       return {
-        actor: session.actor,
-        authType: 'session',
-        workspaceId: session.workspaceId,
-        requestId: '',
-        csrfHash: session.csrfHash,
-        sessionTokenHash: session.tokenHash,
-        expiresAt: session.expiresAt,
+        authenticated: true,
+        context: {
+          actor: session.actor,
+          authType: 'session',
+          workspaceId: session.workspaceId,
+          requestId: '',
+          csrfHash: session.csrfHash,
+          sessionTokenHash: session.tokenHash,
+          expiresAt: active.expiresAt,
+        },
       };
+    },
+
+    async authenticateSession(token: string): Promise<AuthContext | null> {
+      const result = await this.authenticateSessionDetailed(token);
+      return result.authenticated ? result.context : null;
     },
 
     validateCsrf(context: AuthContext, csrfToken: string) {
@@ -97,9 +133,7 @@ export function createAuthService(options: {
 
     async logout(token: string) {
       const tokenHash = digest(token);
-      await options.sessionRepository.replace(
-        (await validSessions()).filter((session) => !safeEqual(session.tokenHash, tokenHash)),
-      );
+      await options.sessionRepository.delete(tokenHash);
     },
   };
 }
