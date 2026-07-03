@@ -21,12 +21,14 @@ The results must be `nilhan.dev@gmail.com` and the selected CRM project ID. Stop
 ## Hostinger application
 
 1. In hPanel, create a Node.js Web App from the private GitHub repository.
-2. Select Node 20 or newer.
-3. Build command: `npm ci && npm run build`.
-4. Start command: `npm start`.
+2. Select Node 22.
+3. Use the Fastify preset and npm package manager. Hostinger runs dependency installation; the root `postinstall` script builds every workspace.
+4. Set the entry file to `app.js`. It dynamically loads the compiled API at `apps/api/dist/index.js` while preserving the legacy root `server.js`.
 5. Connect `crm.globalapps.world`, wait for Hostinger TLS provisioning, and verify HTTPS before attempting login.
 6. Configure the environment keys from `.env.example`, including `NODE_ENV=production`, `CRM_REPOSITORY=firestore`, `CRM_CLOUD_OWNER_EMAIL=nilhan.dev@gmail.com`, Firebase settings, shared-login settings and `CRM_CORS_ORIGINS=https://crm.globalapps.world`.
-7. Leave `PORT` to Hostinger's assigned value. The API binds to `0.0.0.0` in production.
+7. Set `NPM_CONFIG_INCLUDE=dev` so Hostinger installs the TypeScript, tsup and Vite build tools before `postinstall` runs.
+8. Set `PORT=3000`. The managed reverse proxy targets that application port; the API binds to `0.0.0.0` in production.
+9. Set `CRM_PASSWORD_SCRYPT_BASE64` to the base64 encoding of the generated scrypt hash. Hostinger must use this value in preference to the raw dollar-delimited hash.
 
 Create the runtime key only after verifying the active Google identity. Save it temporarily outside the repository, encode it for the Hostinger secret, then securely remove the temporary file. The runtime service account must have only `roles/datastore.user`. Record the key ID and creation date for rotation.
 

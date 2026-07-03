@@ -1,6 +1,6 @@
 # Cloud release status
 
-Verified on 2026-07-02:
+Verified on 2026-07-03:
 
 - Project: `globalapps-northwind-crm`
 - Sole human Google identity: `nilhan.dev@gmail.com`
@@ -15,5 +15,12 @@ Verified on 2026-07-02:
 - Restore drill: restored into `restore-verification`, matched all records, then removed the temporary database
 - Freshness monitoring: private Gen 2 function and authenticated daily Scheduler check passing
 - Unexpected human Google IAM members: zero
+- Production application: live at `https://crm.globalapps.world`
+- Health endpoint: `200 OK` with Firestore repository available
+- Hostinger source: private `NilhanHub/globalapps-northwind-crm`, branch `main`
+- Hostinger runtime: Node 22, Fastify preset, root entry `app.js`, port 3000
+- Shared login, CSRF, secure session cookies and logout: verified in production
+- Runtime service-account key ID: `c83746f798b6f4fd405401c174742680670f5957` (rotate on or before the next scheduled credential review)
+- `apexhrm.com`: verified unaffected and returning `200 OK`
 
-Hostinger deployment remains pending until the repository owner completes hPanel login. No runtime private key has been generated or stored locally. Firestore is populated, but it is not yet presented as the public CRM until `crm.globalapps.world` is deployed and smoke-tested.
+Firestore is the production source of truth. JSON remains available only for local development, import and emergency export. Hostinger stores the runtime credential as an environment secret; the temporary plaintext key file was removed after configuration.

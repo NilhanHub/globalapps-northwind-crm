@@ -30,7 +30,7 @@ npm run build
 npm start
 ```
 
-Open `http://127.0.0.1:8787`. Production startup deliberately fails when `CRM_USERNAME` or `CRM_PASSWORD_SCRYPT` is absent.
+Open `http://127.0.0.1:8787`. Production startup deliberately fails when `CRM_USERNAME` or both password-hash settings are absent. Local environments normally use `CRM_PASSWORD_SCRYPT`; Hostinger uses its base64 encoding in `CRM_PASSWORD_SCRYPT_BASE64`.
 
 ## Commands
 
