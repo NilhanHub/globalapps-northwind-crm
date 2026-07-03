@@ -42,6 +42,16 @@ export async function hashPassword(password: string) {
   return `scrypt$16384$8$1$${salt}$${derived.toString('hex')}`;
 }
 
+export function resolvePasswordHash(env: { CRM_PASSWORD_SCRYPT?: string; CRM_PASSWORD_SCRYPT_BASE64?: string }) {
+  const encoded = env.CRM_PASSWORD_SCRYPT_BASE64?.trim();
+  if (encoded) {
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8').trim();
+    if (!decoded.startsWith('scrypt$')) throw new Error('CRM_PASSWORD_SCRYPT_BASE64 is not a valid scrypt hash');
+    return decoded;
+  }
+  return env.CRM_PASSWORD_SCRYPT?.trim() ?? '';
+}
+
 export async function verifyPassword(password: string, encoded: string) {
   const [algorithm, , , , salt, expected] = encoded.split('$');
   if (algorithm !== 'scrypt' || !salt || !expected) return false;

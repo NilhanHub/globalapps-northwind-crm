@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createAuthService, hashPassword, verifyPassword } from './auth-service.js';
+import { createAuthService, hashPassword, resolvePasswordHash, verifyPassword } from './auth-service.js';
 
 describe('authentication service', () => {
   it('creates salted scrypt hashes and verifies without storing the password', async () => {
@@ -8,6 +8,16 @@ describe('authentication service', () => {
     expect(hash).not.toContain('correct horse battery staple');
     await expect(verifyPassword('correct horse battery staple', hash)).resolves.toBe(true);
     await expect(verifyPassword('wrong', hash)).resolves.toBe(false);
+  });
+
+  it('prefers a base64-encoded hash for hosting environments that alter dollar delimiters', async () => {
+    const hash = await hashPassword('correct horse battery staple');
+    expect(
+      resolvePasswordHash({
+        CRM_PASSWORD_SCRYPT: 'mangled',
+        CRM_PASSWORD_SCRYPT_BASE64: Buffer.from(hash, 'utf8').toString('base64'),
+      }),
+    ).toBe(hash);
   });
 
   it('stores only a token hash and requires the matching csrf token', async () => {

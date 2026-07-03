@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createAuthService } from './auth/auth-service.js';
+import { createAuthService, resolvePasswordHash } from './auth/auth-service.js';
 import { migrateDataStores } from './migration.js';
 import { createJsonRepository } from './repositories/json-repository.js';
 import { createFileSessionRepository } from './repositories/session-repository.js';
@@ -20,7 +20,7 @@ if (repositoryConfig.mode === 'json' && !requiredStores.every((name) => existsSy
   migrateDataStores(root, dataDir);
 
 const username = process.env.CRM_USERNAME?.trim() ?? '';
-const passwordHash = process.env.CRM_PASSWORD_SCRYPT?.trim() ?? '';
+const passwordHash = resolvePasswordHash(process.env);
 if (!username || !passwordHash)
   throw new Error(
     'CRM_USERNAME and CRM_PASSWORD_SCRYPT are required. Run npm run auth:hash-password to create a password hash.',
