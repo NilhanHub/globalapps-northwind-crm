@@ -1462,21 +1462,53 @@ a {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.nw-thread {
+  pointer-events: none;
+}
 .route-card {
   position: relative;
+  cursor: grab;
+  user-select: none;
   transition:
-    transform 140ms ease,
-    box-shadow 140ms ease,
-    opacity 140ms ease;
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease;
 }
-.route-card.is-dragging {
-  z-index: 20;
-  opacity: 0.78;
-  box-shadow: 0 22px 45px rgba(23, 32, 42, 0.2);
+.route-card:active {
+  cursor: grabbing;
+}
+.route-card__open,
+.route-card__controls label,
+.route-card__controls button,
+.route-card__controls summary {
+  cursor: pointer;
+}
+.route-card.is-drag-origin {
+  opacity: 0.0 !important;
+}
+.route-card.is-placeholder {
+  opacity: 0.25;
+  border: 1.5px dashed var(--nw-copper) !important;
+  background: var(--nw-porcelain) !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+.route-card.is-overlay {
+  cursor: grabbing;
+  transform: scale(1.03) rotate(1.5deg);
+  box-shadow: 0 20px 38px rgba(23, 32, 42, 0.16);
+  border-color: var(--nw-copper) !important;
+  z-index: 9999 !important;
+  pointer-events: none;
+  transition: transform 100ms ease, box-shadow 100ms ease;
 }
 .route-column.is-over {
-  border-color: var(--nw-copper);
-  box-shadow: inset 0 0 0 2px rgba(189, 96, 59, 0.18);
+  border-color: var(--nw-copper) !important;
+  background: #e5e3db !important;
+  box-shadow: inset 0 0 0 2px rgba(189, 96, 59, 0.25) !important;
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 .route-card__controls {
   display: flex;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -7,14 +7,17 @@ import {
   useDroppable,
   useSensor,
   useSensors,
+  DragOverlay,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
-import { Filter, GripVertical, MoreHorizontal, Plus, Search } from 'lucide-react';
+import { Filter, MoreHorizontal, Plus, Search } from 'lucide-react';
 import { Badge, Button, RelationshipThread } from '@northwind/ui';
 import type { Company, Person, Route as RelationshipRoute, RouteOwner, RouteStage } from '@northwind/domain';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/page-header';
 import { api } from '../api';
+import { ApiError } from '@northwind/api-client';
 
 const stages: RouteStage[] = [
   'Found route',
@@ -28,6 +31,33 @@ const stages: RouteStage[] = [
 ];
 const owners: RouteOwner[] = ['Paul', 'Jeremy', 'Nilhan', 'other', 'unassigned'];
 
+// Custom SOTA sensor to prevent dragging when clicking interactive elements
+class SmartPointerSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: 'onPointerDown' as const,
+      handler: ({ nativeEvent: event }: { nativeEvent: PointerEvent }) => {
+        if (event.button !== 0) return false; // Ignore non-left click
+        
+        let element = event.target as Element | null;
+        while (element && !element.classList.contains('route-card')) {
+          const tagName = element.tagName.toLowerCase();
+          if (
+            ['input', 'textarea', 'select', 'button', 'a', 'label'].includes(tagName) ||
+            element.classList.contains('stage-menu') ||
+            element.classList.contains('route-select') ||
+            element.classList.contains('route-card__open')
+          ) {
+            return false;
+          }
+          element = element.parentElement;
+        }
+        return true;
+      },
+    },
+  ];
+}
+
 function RouteCard({
   route,
   target,
@@ -36,6 +66,8 @@ function RouteCard({
   onSelect,
   onOpen,
   onMove,
+  isPlaceholder,
+  isOverlay,
 }: {
   route: RelationshipRoute;
   target: Person | undefined;
@@ -44,56 +76,96 @@ function RouteCard({
   onSelect(): void;
   onOpen(): void;
   onMove(stage: RouteStage): void;
+  isPlaceholder?: boolean;
+  isOverlay?: boolean;
 }) {
   const drag = useDraggable({ id: route.id, data: { route } });
-  const style = drag.transform
-    ? { transform: `translate3d(${drag.transform.x}px, ${drag.transform.y}px, 0)` }
-    : undefined;
-  return (
-    <article ref={drag.setNodeRef} style={style} className={`route-card${drag.isDragging ? ' is-dragging' : ''}`}>
-      <div className="route-card__controls" onClick={(event) => event.stopPropagation()}>
-        <label className="route-select">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onSelect}
-            aria-label={`Select route for ${target?.name || route.companyName}`}
-          />
-          <span />
-        </label>
-        <button
-          className="drag-handle"
-          aria-label={`Drag ${target?.name || route.companyName}`}
-          {...drag.listeners}
-          {...drag.attributes}
-        >
-          <GripVertical size={15} />
-        </button>
-        <details className="stage-menu">
-          <summary role="button" aria-label={`Move ${target?.name || route.companyName} to another stage`}>
-            <MoreHorizontal size={16} />
-          </summary>
-          <div>
-            {stages.map((stage) => (
-              <button key={stage} disabled={stage === route.stage} onClick={() => onMove(stage)}>
-                {stage}
-              </button>
-            ))}
+
+  if (isPlaceholder) {
+    return (
+      <article className="route-card is-placeholder" style={{ pointerEvents: 'none' }}>
+        <div style={{ visibility: 'hidden' }}>
+          <div className="route-card__controls">
+            <label className="route-select">
+              <input type="checkbox" readOnly />
+              <span />
+            </label>
           </div>
-        </details>
-      </div>
+          <div className="route-card__head">
+            <div className="company-monogram company-monogram--small">A</div>
+            <div>
+              <span>{route.companyName}</span>
+              <h3>{target?.name || 'Target'}</h3>
+            </div>
+          </div>
+          <p>{target?.title || 'Role not set'}</p>
+          <div className="route-card__mutual">
+            <span>via</span>
+            <strong>{mutual?.name || 'Mutual'}</strong>
+          </div>
+          <footer>
+            <span>unassigned</span>
+          </footer>
+        </div>
+      </article>
+    );
+  }
+
+  const cardClass = `route-card${isOverlay ? ' is-overlay' : ''}${drag.isDragging ? ' is-drag-origin' : ''}`;
+
+  return (
+    <article
+      ref={isOverlay ? undefined : drag.setNodeRef}
+      {...(isOverlay ? {} : drag.listeners)}
+      {...(isOverlay ? {} : drag.attributes)}
+      role="article"
+      className={cardClass}
+      style={{
+        cursor: isOverlay ? 'grabbing' : 'grab',
+        touchAction: 'none',
+      }}
+    >
+      {!isOverlay && (
+        <div className="route-card__controls" onClick={(event) => event.stopPropagation()}>
+          <label className="route-select">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onSelect}
+              aria-label={`Select route for ${target?.name || route.companyName}`}
+            />
+            <span />
+          </label>
+          <details className="stage-menu">
+            <summary role="button" aria-label={`Move ${target?.name || route.companyName} to another stage`}>
+              <MoreHorizontal size={16} />
+            </summary>
+            <div>
+              {stages.map((stage) => (
+                <button key={stage} disabled={stage === route.stage} onClick={() => onMove(stage)}>
+                  {stage}
+                </button>
+              ))}
+            </div>
+          </details>
+        </div>
+      )}
       <div className="route-card__head">
         <div className="company-monogram company-monogram--small">{route.companyName.slice(0, 1)}</div>
         <div>
           <span>{route.companyName}</span>
           <h3>
-            <button
-              className="route-card__open"
-              onClick={onOpen}
-              aria-label={`Open route for ${target?.name || route.companyName}`}
-            >
-              {target?.name || 'Unknown target'}
-            </button>
+            {isOverlay ? (
+              <span>{target?.name || 'Unknown target'}</span>
+            ) : (
+              <button
+                className="route-card__open"
+                onClick={onOpen}
+                aria-label={`Open route for ${target?.name || route.companyName}`}
+              >
+                {target?.name || 'Unknown target'}
+              </button>
+            )}
           </h3>
         </div>
         <Badge
@@ -155,12 +227,22 @@ export function RoutesPage({
   const [bulkDate, setBulkDate] = useState('');
   const [bulkAction, setBulkAction] = useState('');
   const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const [localRoutes, setLocalRoutes] = useState<RelationshipRoute[]>(routes);
+
+  useEffect(() => {
+    setLocalRoutes(routes);
+  }, [routes]);
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor),
   );
+
   const peopleById = useMemo(() => new Map(people.map((person) => [person.id, person])), [people]);
-  const visible = routes.filter(
+  const visible = localRoutes.filter(
     (route) =>
       !route.archivedAt &&
       (owner === 'all' || route.owner === owner) &&
@@ -169,16 +251,54 @@ export function RoutesPage({
         .toLowerCase()
         .includes(query.toLowerCase()),
   );
+
+  const activeDraggingRoute = useMemo(() => {
+    if (!activeId) return null;
+    return localRoutes.find((r) => r.id === activeId) || null;
+  }, [activeId, localRoutes]);
+
   async function move(routeId: string, stage: RouteStage) {
-    await api.request(`/api/routes/${routeId}/actions`, { method: 'POST', body: { action: 'move_stage', stage } });
-    setStatus(`Route moved to ${stage}.`);
-    await onRefresh?.();
+    setError('');
+    try {
+      await api.request(`/api/routes/${routeId}/actions`, { method: 'POST', body: { action: 'move_stage', stage } });
+      setStatus(`Route moved to ${stage}.`);
+      await onRefresh?.();
+    } catch (caught) {
+      const msg = caught instanceof ApiError ? caught.message : 'The route could not be updated.';
+      setError(msg);
+      throw caught;
+    }
   }
+
+  function onDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string);
+  }
+
   async function onDragEnd(event: DragEndEvent) {
-    const stage = event.over?.id as RouteStage | undefined;
-    const route = routes.find((item) => item.id === event.active.id);
-    if (stage && route && stages.includes(stage) && route.stage !== stage) await move(route.id, stage);
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over) return;
+    const stage = over.id as RouteStage;
+    const route = localRoutes.find((item) => item.id === active.id);
+    if (route && stages.includes(stage) && route.stage !== stage) {
+      const previousRoutes = localRoutes;
+      // Optimistic update
+      setLocalRoutes((current) =>
+        current.map((r) => (r.id === route.id ? { ...r, stage } : r))
+      );
+      try {
+        await move(route.id, stage);
+      } catch (err) {
+        // Rollback on failure
+        setLocalRoutes(previousRoutes);
+      }
+    }
   }
+
+  function onDragCancel() {
+    setActiveId(null);
+  }
+
   async function applyBulk() {
     await api.request('/api/routes/bulk/actions', {
       method: 'POST',
@@ -188,6 +308,7 @@ export function RoutesPage({
     setSelected(new Set());
     await onRefresh?.();
   }
+
   return (
     <section className="workspace workspace--board">
       <div className="sr-only" role="status" aria-live="polite">
@@ -200,12 +321,12 @@ export function RoutesPage({
         metrics={[
           {
             label: 'Active',
-            value: routes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage))
+            value: localRoutes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage))
               .length,
           },
           {
             label: 'Unassigned',
-            value: routes.filter((route) => !route.archivedAt && route.owner === 'unassigned').length,
+            value: localRoutes.filter((route) => !route.archivedAt && route.owner === 'unassigned').length,
           },
           { label: 'Companies', value: companies.filter((company) => !company.archivedAt).length },
         ]}
@@ -215,7 +336,12 @@ export function RoutesPage({
           </Button>
         }
       />
-      {routes.some(
+      {error ? (
+        <div role="alert" className="form-alert" style={{ margin: '12px 0 0 0', borderRadius: '8px' }}>
+          {error}
+        </div>
+      ) : null}
+      {localRoutes.some(
         (route) => !route.archivedAt && (route.owner === 'unassigned' || !route.dueDate || !route.nextAction),
       ) ? (
         <aside className="setup-banner">
@@ -225,7 +351,7 @@ export function RoutesPage({
           </div>
           <Badge tone="copper">
             {
-              routes.filter(
+              localRoutes.filter(
                 (route) => !route.archivedAt && (route.owner === 'unassigned' || !route.dueDate || !route.nextAction),
               ).length
             }{' '}
@@ -283,7 +409,7 @@ export function RoutesPage({
           </Button>
         </div>
       ) : null}
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
         <div className="route-board" aria-label="Warm introduction routes">
           {stages.map((stage) => {
             const stageRoutes = visible.filter((route) => route.stage === stage);
@@ -307,6 +433,7 @@ export function RoutesPage({
                       }
                       onOpen={() => navigate(`/routes/${route.id}`)}
                       onMove={(nextStage) => move(route.id, nextStage)}
+                      isPlaceholder={activeId === route.id}
                     />
                   ))
                 ) : (
@@ -320,6 +447,20 @@ export function RoutesPage({
             );
           })}
         </div>
+        <DragOverlay>
+          {activeId && activeDraggingRoute ? (
+            <RouteCard
+              route={activeDraggingRoute}
+              target={peopleById.get(activeDraggingRoute.targetPersonId)}
+              mutual={peopleById.get(activeDraggingRoute.mutualPersonId)}
+              selected={false}
+              onSelect={() => {}}
+              onOpen={() => {}}
+              onMove={() => {}}
+              isOverlay
+            />
+          ) : null}
+        </DragOverlay>
       </DndContext>
     </section>
   );
