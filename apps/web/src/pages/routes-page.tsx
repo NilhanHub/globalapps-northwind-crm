@@ -11,8 +11,8 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { Filter, MoreHorizontal, Plus, Search } from 'lucide-react';
-import { Badge, Button, RelationshipThread } from '@northwind/ui';
+import { Filter, MoreHorizontal, Plus } from 'lucide-react';
+import { Badge, Button, RelationshipThread, Select, Checkbox, SearchField, Alert, Input, Toolbar } from '@northwind/ui';
 import type { Company, Person, Route as RelationshipRoute, RouteOwner, RouteStage } from '@northwind/domain';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/page-header';
@@ -38,7 +38,7 @@ class SmartPointerSensor extends PointerSensor {
       eventName: 'onPointerDown' as const,
       handler: ({ nativeEvent: event }: { nativeEvent: PointerEvent }) => {
         if (event.button !== 0) return false; // Ignore non-left click
-        
+
         let element = event.target as Element | null;
         while (element && !element.classList.contains('route-card')) {
           const tagName = element.tagName.toLowerCase();
@@ -87,8 +87,7 @@ function RouteCard({
         <div style={{ visibility: 'hidden' }}>
           <div className="route-card__controls">
             <label className="route-select">
-              <input type="checkbox" readOnly />
-              <span />
+              <Checkbox checked={false} readOnly />
             </label>
           </div>
           <div className="route-card__head">
@@ -128,13 +127,11 @@ function RouteCard({
       {!isOverlay && (
         <div className="route-card__controls" onClick={(event) => event.stopPropagation()}>
           <label className="route-select">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={selected}
               onChange={onSelect}
               aria-label={`Select route for ${target?.name || route.companyName}`}
             />
-            <span />
           </label>
           <details className="stage-menu">
             <summary role="button" aria-label={`Move ${target?.name || route.companyName} to another stage`}>
@@ -233,6 +230,7 @@ export function RoutesPage({
   const [localRoutes, setLocalRoutes] = useState<RelationshipRoute[]>(routes);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalRoutes(routes);
   }, [routes]);
 
@@ -283,12 +281,10 @@ export function RoutesPage({
     if (route && stages.includes(stage) && route.stage !== stage) {
       const previousRoutes = localRoutes;
       // Optimistic update
-      setLocalRoutes((current) =>
-        current.map((r) => (r.id === route.id ? { ...r, stage } : r))
-      );
+      setLocalRoutes((current) => current.map((r) => (r.id === route.id ? { ...r, stage } : r)));
       try {
         await move(route.id, stage);
-      } catch (err) {
+      } catch {
         // Rollback on failure
         setLocalRoutes(previousRoutes);
       }
@@ -332,18 +328,18 @@ export function RoutesPage({
         ]}
         actions={
           <Button onClick={onCreate}>
-            <Plus size={16} /> New route
+            <Plus size={16} className="mr-2" /> New route
           </Button>
         }
       />
-      {error ? (
-        <div role="alert" className="form-alert" style={{ margin: '12px 0 0 0', borderRadius: '8px' }}>
+      {error && (
+        <Alert variant="danger" className="mt-3">
           {error}
-        </div>
-      ) : null}
+        </Alert>
+      )}
       {localRoutes.some(
         (route) => !route.archivedAt && (route.owner === 'unassigned' || !route.dueDate || !route.nextAction),
-      ) ? (
+      ) && (
         <aside className="setup-banner">
           <div>
             <strong>Route setup needs attention</strong>
@@ -358,55 +354,77 @@ export function RoutesPage({
             incomplete
           </Badge>
         </aside>
-      ) : null}
-      <div className="workspace-toolbar">
-        <label className="search-field">
-          <Search size={17} />
-          <span className="sr-only">Search routes</span>
-          <input
-            type="search"
-            aria-label="Search routes"
-            placeholder="Search companies, targets, mutuals…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-        <label className="select-field">
-          <Filter size={16} />
-          <span className="sr-only">Filter owner</span>
-          <select aria-label="Filter routes by owner" value={owner} onChange={(event) => setOwner(event.target.value)}>
+      )}
+      <Toolbar className="workspace-toolbar mb-6">
+        <SearchField
+          aria-label="Search routes"
+          placeholder="Search companies, targets, mutuals…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div className="flex items-center gap-2">
+          <Filter size={16} className="text-ink-soft/45" />
+          <Select
+            aria-label="Filter routes by owner"
+            value={owner}
+            onChange={(event) => setOwner(event.target.value)}
+            className="w-40 h-9 py-0.5"
+          >
             <option value="all">All owners</option>
             {owners.map((item) => (
               <option key={item} value={item}>
                 {item === 'other' ? 'Other' : item === 'unassigned' ? 'Unassigned' : item}
               </option>
             ))}
-          </select>
-        </label>
-      </div>
+          </Select>
+        </div>
+      </Toolbar>
       {selected.size ? (
-        <div className="bulk-bar" role="region" aria-label="Bulk route actions">
+        <div
+          className="bulk-bar flex flex-wrap items-center gap-4 p-4 border border-line rounded-md bg-paper shadow-sm mb-6"
+          role="region"
+          aria-label="Bulk route actions"
+        >
           <strong>{selected.size} selected</strong>
-          <label>
-            Owner
-            <select value={bulkOwner} onChange={(event) => setBulkOwner(event.target.value as RouteOwner)}>
-              {owners.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Due
-            <input type="date" value={bulkDate} onChange={(event) => setBulkDate(event.target.value)} />
-          </label>
-          <label>
-            Next action
-            <input value={bulkAction} onChange={(event) => setBulkAction(event.target.value)} />
-          </label>
-          <Button onClick={applyBulk}>Update selected</Button>
-          <Button variant="ghost" onClick={() => setSelected(new Set())}>
-            Clear
-          </Button>
+          <div className="flex items-center gap-3">
+            <label className="text-xs font-semibold text-ink-soft">
+              Owner
+              <Select
+                value={bulkOwner}
+                onChange={(event) => setBulkOwner(event.target.value as RouteOwner)}
+                className="h-8 py-0.5 mt-1"
+              >
+                {owners.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </Select>
+            </label>
+            <label className="text-xs font-semibold text-ink-soft">
+              Due
+              <Input
+                type="date"
+                value={bulkDate}
+                onChange={(event) => setBulkDate(event.target.value)}
+                className="h-8 py-0.5 mt-1"
+              />
+            </label>
+            <label className="text-xs font-semibold text-ink-soft">
+              Next action
+              <Input
+                value={bulkAction}
+                onChange={(event) => setBulkAction(event.target.value)}
+                className="h-8 py-0.5 mt-1"
+              />
+            </label>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button onClick={applyBulk} className="h-8 py-0">
+              Update selected
+            </Button>
+            <Button variant="ghost" onClick={() => setSelected(new Set())} className="h-8 py-0">
+              Clear
+            </Button>
+          </div>
         </div>
       ) : null}
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>

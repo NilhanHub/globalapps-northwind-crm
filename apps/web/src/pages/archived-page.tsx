@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArchiveRestore, Trash2 } from 'lucide-react';
-import { Badge, Button, Dialog } from '@northwind/ui';
+import { Badge, Button, Dialog, EmptyState, Alert } from '@northwind/ui';
 import type { Company, Person, Route } from '@northwind/domain';
 import { PageHeader } from '../components/page-header';
 import { api } from '../api';
@@ -22,6 +22,7 @@ export function ArchivedPage({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [purgeTarget, setPurgeTarget] = useState<ArchivedRecord | null>(null);
+
   const records: ArchivedRecord[] = [
     ...companies.filter((item) => item.archivedAt).map((item) => ({ ...item, kind: 'Company' as const })),
     ...people.filter((item) => item.archivedAt).map((item) => ({ ...item, kind: 'Person' as const })),
@@ -29,6 +30,7 @@ export function ArchivedPage({
       .filter((item) => item.archivedAt)
       .map((item) => ({ ...item, name: item.companyName, kind: 'Route' as const })),
   ];
+
   async function restore(record: ArchivedRecord) {
     setBusy(record.id);
     setError('');
@@ -42,6 +44,7 @@ export function ArchivedPage({
       setBusy('');
     }
   }
+
   async function purge(record: ArchivedRecord) {
     setBusy(record.id);
     setError('');
@@ -57,6 +60,7 @@ export function ArchivedPage({
       setBusy('');
     }
   }
+
   return (
     <section className="workspace">
       <PageHeader
@@ -65,11 +69,13 @@ export function ArchivedPage({
         description="Restore deliberate removals without losing relationship history or audit context."
         metrics={[{ label: 'Archived', value: records.length }]}
       />
-      {error ? (
-        <div className="error-panel" role="alert">
+
+      {error && (
+        <Alert variant="danger" className="mb-4">
           {error}
-        </div>
-      ) : null}
+        </Alert>
+      )}
+
       {records.length ? (
         <div className="archive-list">
           {records.map((record) => (
@@ -94,21 +100,23 @@ export function ArchivedPage({
                   variant="ghost"
                   disabled={busy === record.id}
                   onClick={() => setPurgeTarget(record)}
+                  className="text-danger hover:bg-danger/5"
                 >
-                  <Trash2 size={15} /> Delete
+                  <Trash2 size={15} className="mr-1" /> Delete
                 </Button>
               </div>
             </article>
           ))}
         </div>
       ) : (
-        <div className="empty-state">
-          <div className="empty-state__mark">✓</div>
-          <h2>Nothing is archived</h2>
-          <p>Removed records will remain recoverable here.</p>
-        </div>
+        <EmptyState
+          title="Nothing is archived"
+          description="Removed records will remain recoverable here."
+          icon={<ArchiveRestore size={24} />}
+        />
       )}
-      {purgeTarget ? (
+
+      {purgeTarget && (
         <Dialog
           open
           onOpenChange={(open) => {
@@ -121,17 +129,17 @@ export function ArchivedPage({
               <Button variant="ghost" onClick={() => setPurgeTarget(null)}>
                 Cancel
               </Button>
-              <Button onClick={() => purge(purgeTarget)} disabled={Boolean(busy)}>
+              <Button variant="danger" onClick={() => purge(purgeTarget)} disabled={Boolean(busy)}>
                 Delete {purgeTarget.name}
               </Button>
             </>
           }
         >
-          <div className="form-alert" role="alert">
+          <Alert variant="warning">
             Permanent deletion cannot be undone. Restore is safer when you may need this history later.
-          </div>
+          </Alert>
         </Dialog>
-      ) : null}
+      )}
     </section>
   );
 }

@@ -1,5 +1,31 @@
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme' layer(theme);
+@import 'tailwindcss/utilities' layer(utilities);
+
 @import '@northwind/ui/styles.css';
 
+@theme {
+  --color-burgundy: #761f36;
+  --color-burgundy-deep: #541426;
+  --color-copper: #bd603b;
+  --color-sage: #657a69;
+  --color-porcelain: #f5f4ef;
+  --color-paper: #fffefa;
+  --color-ink: #17202a;
+  --color-ink-soft: #34424f;
+  --color-mist: #e6e8e5;
+  --color-line: #d9d7cf;
+  --color-danger: #ad2f35;
+
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-ui: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  --font-data: 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+}
 * {
   box-sizing: border-box;
 }
@@ -1486,7 +1512,7 @@ a {
   cursor: pointer;
 }
 .route-card.is-drag-origin {
-  opacity: 0.0 !important;
+  opacity: 0 !important;
 }
 .route-card.is-placeholder {
   opacity: 0.25;
@@ -1502,13 +1528,17 @@ a {
   border-color: var(--nw-copper) !important;
   z-index: 9999 !important;
   pointer-events: none;
-  transition: transform 100ms ease, box-shadow 100ms ease;
+  transition:
+    transform 100ms ease,
+    box-shadow 100ms ease;
 }
 .route-column.is-over {
   border-color: var(--nw-copper) !important;
   background: #e5e3db !important;
   box-shadow: inset 0 0 0 2px rgba(189, 96, 59, 0.25) !important;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 .route-card__controls {
   display: flex;

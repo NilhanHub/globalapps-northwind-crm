@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Archive, CheckCircle2, MessageSquare, Phone, RotateCcw, Send, Trophy, XCircle } from 'lucide-react';
-import { Badge, Button, RelationshipThread } from '@northwind/ui';
+import { Badge, Button, RelationshipThread, Card, Select, Alert, Input, Textarea, Label, Field } from '@northwind/ui';
 import type { BootstrapData } from '../types';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
@@ -25,6 +25,7 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [undo, setUndo] = useState<{ activityId: string } | null>(null);
+
   const timeline = useMemo(
     () =>
       data.activities
@@ -32,6 +33,7 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
     [data.activities, id],
   );
+
   if (!route)
     return (
       <div className="empty-state">
@@ -39,8 +41,10 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
         <Link to="/routes">Return to routes</Link>
       </div>
     );
+
   const target = data.people.find((person) => person.id === route.targetPersonId);
   const mutual = data.people.find((person) => person.id === route.mutualPersonId);
+
   async function perform(action: string, extra: Record<string, unknown> = {}) {
     setBusy(action);
     setError('');
@@ -57,6 +61,7 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
       setBusy('');
     }
   }
+
   async function undoLast() {
     if (!undo) return;
     setBusy('undo');
@@ -70,18 +75,20 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
       setBusy('');
     }
   }
+
   return (
     <section className="route-detail">
       <Link className="back-link" to="/routes">
-        <ArrowLeft size={16} /> Routes
+        <ArrowLeft size={16} className="mr-1.5" /> Routes
       </Link>
-      <header className="route-detail__hero">
+
+      <header className="route-detail__hero mb-6">
         <div>
           <span className="page-eyebrow">Relationship command</span>
           <h1>
-            {route.companyName} <span>→</span> {target?.name}
+            {route.companyName} <span className="text-copper mx-1">→</span> {target?.name}
           </h1>
-          <p>{target?.title || 'Role not set'}</p>
+          <p className="text-sm text-ink-soft/75 mt-1">{target?.title || 'Role not set'}</p>
         </div>
         <Badge tone={route.outcome === 'won' ? 'sage' : route.outcome === 'dead' ? 'neutral' : 'burgundy'}>
           {route.stage}
@@ -93,54 +100,77 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
           stage={route.stage}
         />
       </header>
+
       <div className="route-detail__grid">
-        <section className="route-command">
-          <header>
-            <span className="panel-eyebrow">Action bar</span>
-            <h2>Move the relationship forward</h2>
+        <Card className="route-command">
+          <header className="mb-5">
+            <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+              Action bar
+            </span>
+            <h2 className="m-0 text-xl font-display font-semibold text-ink mt-1">Move the relationship forward</h2>
           </header>
-          {error ? (
-            <div role="alert" className="form-alert">
+
+          {error && (
+            <Alert variant="danger" className="mb-4">
               {error}
-            </div>
-          ) : null}
-          {undo ? (
-            <div className="undo-banner" role="status">
-              <span>Action recorded.</span>
-              <Button variant="secondary" disabled={busy === 'undo'} onClick={undoLast}>
-                <RotateCcw size={15} /> Undo
+            </Alert>
+          )}
+
+          {undo && (
+            <div
+              className="undo-banner mb-4 p-3 bg-sage/10 border border-sage/20 rounded flex items-center justify-between"
+              role="status"
+            >
+              <span className="text-sm font-semibold">Action recorded.</span>
+              <Button variant="secondary" className="h-8 py-0" disabled={busy === 'undo'} onClick={undoLast}>
+                <RotateCcw size={14} className="mr-1.5" /> Undo
               </Button>
             </div>
-          ) : null}
-          <div className="action-grid">
+          )}
+
+          <div className="action-grid mb-5">
             {actionButtons.map(([action, label, Icon]) => (
               <Button variant="secondary" key={action} disabled={Boolean(busy)} onClick={() => perform(action)}>
-                <Icon size={16} />
+                <Icon size={16} className="mr-2 text-copper" />
                 {label}
               </Button>
             ))}
           </div>
-          <div className="action-context">
-            <label className="field field--wide">
-              Outcome or notes
-              <textarea
+
+          <div className="action-context grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <Field className="md:col-span-2">
+              <Label htmlFor="details">Outcome or notes</Label>
+              <Textarea
+                id="details"
                 value={details}
                 onChange={(event) => setDetails(event.target.value)}
                 rows={4}
                 placeholder="What happened?"
               />
-            </label>
-            <label className="field">
-              Next action
-              <input value={nextAction} onChange={(event) => setNextAction(event.target.value)} />
-            </label>
-            <label className="field">
-              Follow-up date
-              <input type="date" value={followUpDate} onChange={(event) => setFollowUpDate(event.target.value)} />
-            </label>
-            <label className="field">
-              Stage
-              <select value={route.stage} onChange={(event) => perform('move_stage', { stage: event.target.value })}>
+            </Field>
+
+            <Field>
+              <Label htmlFor="nextAction">Next action</Label>
+              <Input id="nextAction" value={nextAction} onChange={(event) => setNextAction(event.target.value)} />
+            </Field>
+
+            <Field>
+              <Label htmlFor="followUpDate">Follow-up date</Label>
+              <Input
+                id="followUpDate"
+                type="date"
+                value={followUpDate}
+                onChange={(event) => setFollowUpDate(event.target.value)}
+              />
+            </Field>
+
+            <Field>
+              <Label htmlFor="stage">Stage</Label>
+              <Select
+                id="stage"
+                value={route.stage}
+                onChange={(event) => perform('move_stage', { stage: event.target.value })}
+              >
                 {[
                   'Found route',
                   'Mutual friend to contact',
@@ -151,26 +181,35 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
                 ].map((stage) => (
                   <option key={stage}>{stage}</option>
                 ))}
-              </select>
-            </label>
-            <label className="field">
-              Won/dead reason
-              <input
+              </Select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="reason">Won/dead reason</Label>
+              <Input
+                id="reason"
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
                 placeholder="Required for terminal outcomes"
               />
-            </label>
+            </Field>
           </div>
-          <div className="terminal-actions">
+
+          <div className="terminal-actions border-t border-line/60 pt-4 flex items-center justify-end gap-3">
             <Button variant="secondary" onClick={() => perform('mark_won')} disabled={!reason || Boolean(busy)}>
-              <Trophy size={16} /> Mark won
-            </Button>
-            <Button variant="ghost" onClick={() => perform('mark_dead')} disabled={!reason || Boolean(busy)}>
-              <XCircle size={16} /> Mark dead
+              <Trophy size={16} className="mr-2 text-burgundy" /> Mark won
             </Button>
             <Button
               variant="ghost"
+              onClick={() => perform('mark_dead')}
+              disabled={!reason || Boolean(busy)}
+              className="text-danger hover:bg-danger/5"
+            >
+              <XCircle size={16} className="mr-2" /> Mark dead
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-ink-soft"
               onClick={async () => {
                 if (!reason) {
                   setError('Enter a reason before archiving.');
@@ -180,47 +219,65 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
                 await onRefresh();
               }}
             >
-              <Archive size={16} /> Archive
+              <Archive size={16} className="mr-2" /> Archive
             </Button>
           </div>
-        </section>
-        <aside className="route-summary">
-          <span className="panel-eyebrow">Route state</span>
-          {[
-            ['Owner', route.owner],
-            ['Confidence', route.confidence],
-            ['Due date', route.dueDate || 'No date'],
-            ['Next action', route.nextAction || 'Not set'],
-            ['Outcome', route.outcome],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <span>{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
-        </aside>
-        <section className="route-timeline">
-          <header>
-            <span className="panel-eyebrow">Audit trail</span>
-            <h2>Relationship timeline</h2>
+        </Card>
+
+        <Card className="route-summary self-start">
+          <header className="mb-4">
+            <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+              Route state
+            </span>
+          </header>
+          <div className="flex flex-col gap-3">
+            {[
+              ['Owner', route.owner],
+              ['Confidence', route.confidence],
+              ['Due date', route.dueDate || 'No date'],
+              ['Next action', route.nextAction || 'Not set'],
+              ['Outcome', route.outcome],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="flex justify-between items-center py-1.5 border-b border-line/40 last:border-0"
+              >
+                <span className="text-xs font-semibold text-ink-soft/70">{label}</span>
+                <strong className="text-sm font-semibold text-ink">{value}</strong>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="route-timeline md:col-span-2">
+          <header className="mb-5">
+            <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+              Audit trail
+            </span>
+            <h2 className="m-0 text-xl font-display font-semibold text-ink mt-1">Relationship timeline</h2>
           </header>
           {timeline.length ? (
-            timeline.map((activity) => (
-              <article key={activity.id}>
-                <span className="timeline-dot" />
-                <div>
-                  <strong>{activity.summary}</strong>
-                  <p>{activity.details || activity.reason}</p>
-                  <small>
-                    {activity.actor} · {new Date(activity.timestamp).toLocaleString()}
-                  </small>
-                </div>
-              </article>
-            ))
+            <div className="timeline flex flex-col gap-4">
+              {timeline.map((activity) => (
+                <article
+                  key={activity.id}
+                  className="relative pl-6 pb-4 border-l border-line/60 last:border-0 last:pb-0"
+                >
+                  <span className="timeline-dot absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-copper border-2 border-paper" />
+                  <div>
+                    <strong className="text-sm font-semibold text-ink">{activity.summary}</strong>
+                    <p className="text-xs text-ink-soft/75 mt-1">{activity.details || activity.reason}</p>
+                    <small className="block text-[10px] text-ink-soft/50 mt-1">
+                      {activity.actor} · {new Date(activity.timestamp).toLocaleString()}
+                    </small>
+                  </div>
+                </article>
+              ))}
+            </div>
           ) : (
-            <div className="column-empty">No activity recorded yet.</div>
+            <div className="column-empty text-center text-ink-soft/40 py-8">No activity recorded yet.</div>
           )}
-        </section>
+        </Card>
       </div>
     </section>
   );

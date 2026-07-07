@@ -1,4 +1,4 @@
-import { Badge, RelationshipThread } from '@northwind/ui';
+import { Badge, RelationshipThread, Card } from '@northwind/ui';
 import { PageHeader } from '../components/page-header';
 
 const steps = [
@@ -30,14 +30,16 @@ export function ProcessPage() {
       <ol className="process-grid">
         {steps.map(([number, title, description], index) => (
           <li key={number}>
-            <header>
-              <span>{number}</span>
-              <Badge tone={index < 3 ? 'copper' : index < 6 ? 'burgundy' : 'sage'}>
-                {index < 3 ? 'Prepare' : index < 6 ? 'Introduce' : 'Progress'}
-              </Badge>
-            </header>
-            <h2>{title}</h2>
-            <p>{description}</p>
+            <Card className="h-full min-h-[225px] flex flex-col p-5 hover:shadow-md transition-all">
+              <header className="flex justify-between items-center mb-4">
+                <span className="text-ink-soft/40 font-bold font-data text-sm">{number}</span>
+                <Badge tone={index < 3 ? 'copper' : index < 6 ? 'burgundy' : 'sage'}>
+                  {index < 3 ? 'Prepare' : index < 6 ? 'Introduce' : 'Progress'}
+                </Badge>
+              </header>
+              <h2 className="text-lg font-display font-semibold text-ink mt-auto mb-2 leading-tight">{title}</h2>
+              <p className="text-xs text-ink-soft/75 leading-relaxed">{description}</p>
+            </Card>
           </li>
         ))}
       </ol>

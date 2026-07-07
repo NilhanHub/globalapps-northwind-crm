@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Archive, LayoutGrid, List, Plus, Search } from 'lucide-react';
-import { Badge, Button } from '@northwind/ui';
+import { Archive, LayoutGrid, List, Plus } from 'lucide-react';
+import { Badge, Button, Toolbar, SearchField, EmptyState, Card, IconButton } from '@northwind/ui';
 import type { Company, Route } from '@northwind/domain';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../components/page-header';
@@ -31,7 +31,9 @@ export function CompaniesPage({
       ),
     [companies, query],
   );
+
   const activeRoutes = routes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage));
+
   return (
     <section className="workspace">
       <PageHeader
@@ -45,61 +47,69 @@ export function CompaniesPage({
         ]}
         actions={
           <Button onClick={onCreate}>
-            <Plus size={16} aria-hidden /> Add company
+            <Plus size={16} className="mr-2" aria-hidden /> Add company
           </Button>
         }
       />
-      <div className="workspace-toolbar">
-        <label className="search-field">
-          <Search size={17} aria-hidden />
-          <span className="sr-only">Search companies</span>
-          <input
-            type="search"
-            aria-label="Search companies"
-            placeholder="Search companies, sectors, contacts…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-        <div className="view-switch" role="group" aria-label="Company view">
-          <button className={view === 'grid' ? 'is-active' : ''} onClick={() => setView('grid')} aria-label="Grid view">
-            <LayoutGrid size={17} />
-          </button>
-          <button
-            className={view === 'table' ? 'is-active' : ''}
-            onClick={() => setView('table')}
-            aria-label="Table view"
-          >
-            <List size={17} />
-          </button>
+
+      <Toolbar className="workspace-toolbar mb-6">
+        <SearchField
+          aria-label="Search companies"
+          placeholder="Search companies, sectors, contacts…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div className="flex items-center gap-4">
+          <div className="view-switch" role="group" aria-label="Company view">
+            <IconButton
+              variant={view === 'grid' ? 'primary' : 'ghost'}
+              onClick={() => setView('grid')}
+              aria-label="Grid view"
+            >
+              <LayoutGrid size={17} />
+            </IconButton>
+            <IconButton
+              variant={view === 'table' ? 'primary' : 'ghost'}
+              onClick={() => setView('table')}
+              aria-label="Table view"
+            >
+              <List size={17} />
+            </IconButton>
+          </div>
+          <Link to="/archived" className="toolbar-link">
+            <Archive size={16} className="mr-1.5" /> Archived
+          </Link>
         </div>
-        <Link to="/archived" className="toolbar-link">
-          <Archive size={16} /> Archived
-        </Link>
-      </div>
+      </Toolbar>
+
       {visible.length ? (
         view === 'grid' ? (
           <div className="company-grid">
             {visible.map((company) => (
-              <Link className="company-card" to={`/companies/${company.id}`} key={company.id}>
-                <div className="company-card__top">
-                  <div className="company-monogram">{company.name.slice(0, 1)}</div>
-                  <Badge tone={statusTone(company.status)}>{company.status}</Badge>
-                </div>
-                <h2>{company.name}</h2>
-                <p>
-                  {company.sector || company.industry || 'Sector not set'}
-                  {company.country ? ` · ${company.country}` : ''}
-                </p>
-                <div className="company-card__route">
-                  <span>Relationship paths</span>
-                  <strong>{activeRoutes.filter((route) => route.companyId === company.id).length}</strong>
-                </div>
-                <footer>
-                  <span>{company.contactName || 'Contact not set'}</span>
-                  <span>Open account →</span>
-                </footer>
-              </Link>
+              <Card
+                key={company.id}
+                className="company-card hover:shadow-md hover:-translate-y-0.5 transition-all p-0 overflow-hidden"
+              >
+                <Link className="block p-6 h-full" to={`/companies/${company.id}`}>
+                  <div className="company-card__top">
+                    <div className="company-monogram">{company.name.slice(0, 1)}</div>
+                    <Badge tone={statusTone(company.status)}>{company.status}</Badge>
+                  </div>
+                  <h2>{company.name}</h2>
+                  <p>
+                    {company.sector || company.industry || 'Sector not set'}
+                    {company.country ? ` · ${company.country}` : ''}
+                  </p>
+                  <div className="company-card__route">
+                    <span>Relationship paths</span>
+                    <strong>{activeRoutes.filter((route) => route.companyId === company.id).length}</strong>
+                  </div>
+                  <footer>
+                    <span>{company.contactName || 'Contact not set'}</span>
+                    <span>Open account →</span>
+                  </footer>
+                </Link>
+              </Card>
             ))}
           </div>
         ) : (
@@ -133,14 +143,14 @@ export function CompaniesPage({
           </div>
         )
       ) : (
-        <div className="empty-state">
-          <div className="empty-state__mark">N</div>
-          <h2>{query ? 'No matching companies' : 'Your company desk is clear'}</h2>
-          <p>
-            {query ? 'Try another name, sector or contact.' : 'Add the first account to start building warm routes.'}
-          </p>
-          {!query ? <Button onClick={onCreate}>Add company</Button> : null}
-        </div>
+        <EmptyState
+          title={query ? 'No matching companies' : 'Your company desk is clear'}
+          description={
+            query ? 'Try another name, sector or contact.' : 'Add the first account to start building warm routes.'
+          }
+          icon={<LayoutGrid size={24} />}
+          action={!query ? <Button onClick={onCreate}>Add company</Button> : null}
+        />
       )}
     </section>
   );

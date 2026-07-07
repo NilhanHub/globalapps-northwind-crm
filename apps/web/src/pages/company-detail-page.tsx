@@ -1,10 +1,36 @@
 import { useState } from 'react';
 import { Archive, ArrowLeft, Edit3, ExternalLink, Mail, MessageSquare, Phone } from 'lucide-react';
-import { Badge, Button, Dialog, RelationshipThread } from '@northwind/ui';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Badge,
+  Button,
+  Dialog,
+  RelationshipThread,
+  Card,
+  Select,
+  Alert,
+  Input,
+  Label,
+  Field,
+  FieldError,
+} from '@northwind/ui';
 import type { Activity, Company, Person, Route } from '@northwind/domain';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { ApiError } from '@northwind/api-client';
+
+const companySchema = z.object({
+  name: z.string().min(1, { message: 'Company name is required' }),
+  sector: z.string(),
+  country: z.string(),
+  status: z.string(),
+  contactName: z.string(),
+  email: z.string().email({ message: 'Invalid email address' }).or(z.literal('')),
+});
+
+type CompanySchema = z.infer<typeof companySchema>;
 
 function CompanyDialog({
   company,
@@ -15,15 +41,26 @@ function CompanyDialog({
   onClose(): void;
   onRefresh: (() => Promise<unknown>) | undefined;
 }) {
-  const [name, setName] = useState(company.name);
-  const [sector, setSector] = useState(company.sector || company.industry);
-  const [country, setCountry] = useState(company.country);
-  const [status, setStatus] = useState(company.status);
-  const [contactName, setContactName] = useState(company.contactName);
-  const [email, setEmail] = useState(company.email);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CompanySchema>({
+    resolver: zodResolver(companySchema),
+    defaultValues: {
+      name: company.name,
+      sector: company.sector || company.industry || '',
+      country: company.country || '',
+      status: company.status || 'New',
+      contactName: company.contactName || '',
+      email: company.email || '',
+    },
+  });
+
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+
   async function run(label: string, task: () => Promise<unknown>) {
     setBusy(label);
     setError('');
@@ -37,6 +74,24 @@ function CompanyDialog({
       setBusy('');
     }
   }
+
+  const handleSave = (values: CompanySchema) => {
+    run('save', () =>
+      api.request(`/api/companies/${company.id}`, {
+        method: 'PATCH',
+        headers: { 'If-Match': String(company.version) },
+        body: {
+          name: values.name,
+          sector: values.sector,
+          country: values.country,
+          status: values.status,
+          contactName: values.contactName,
+          email: values.email,
+        },
+      }),
+    );
+  };
+
   return (
     <Dialog
       open
@@ -50,66 +105,67 @@ function CompanyDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            disabled={!name.trim() || Boolean(busy)}
-            onClick={() =>
-              run('save', () =>
-                api.request(`/api/companies/${company.id}`, {
-                  method: 'PATCH',
-                  headers: { 'If-Match': String(company.version) },
-                  body: { name, sector, country, status, contactName, email },
-                }),
-              )
-            }
-          >
+          <Button disabled={Boolean(busy)} onClick={handleSubmit(handleSave)}>
             {busy === 'save' ? 'Saving…' : 'Save company'}
           </Button>
         </>
       }
     >
-      <div className="entity-form">
-        {error ? (
-          <div className="form-alert field--wide" role="alert">
-            {error}
-          </div>
-        ) : null}
-        <label className="field field--wide">
-          Company name
-          <input value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label className="field">
-          Status
-          <select value={status} onChange={(event) => setStatus(event.target.value as Company['status'])}>
-            {['New', 'Contacted', 'Awaiting reply', 'Won', 'Lost'].map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          Country
-          <input value={country} onChange={(event) => setCountry(event.target.value)} />
-        </label>
-        <label className="field field--wide">
-          Sector
-          <input value={sector} onChange={(event) => setSector(event.target.value)} />
-        </label>
-        <label className="field">
-          Primary contact
-          <input value={contactName} onChange={(event) => setContactName(event.target.value)} />
-        </label>
-        <label className="field">
-          Email
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <section className="record-safety field--wide">
-          <h3>Archive account</h3>
-          <p>Active people and routes are archived together and can be restored from the recovery desk.</p>
-          <div className="merge-row">
-            <input
+      <div className="entity-form flex flex-col gap-4">
+        {error && <Alert variant="danger">{error}</Alert>}
+
+        <Field>
+          <Label htmlFor="name">Company name</Label>
+          <Input id="name" {...register('name')} />
+          {errors.name && <FieldError>{errors.name.message}</FieldError>}
+        </Field>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field>
+            <Label htmlFor="status">Status</Label>
+            <Select id="status" {...register('status')}>
+              {['New', 'Contacted', 'Awaiting reply', 'Won', 'Lost'].map((item) => (
+                <option key={item}>{item}</option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field>
+            <Label htmlFor="country">Country</Label>
+            <Input id="country" {...register('country')} />
+          </Field>
+        </div>
+
+        <Field>
+          <Label htmlFor="sector">Sector</Label>
+          <Input id="sector" {...register('sector')} />
+        </Field>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field>
+            <Label htmlFor="contactName">Primary contact</Label>
+            <Input id="contactName" {...register('contactName')} />
+          </Field>
+
+          <Field>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" {...register('email')} />
+            {errors.email && <FieldError>{errors.email.message}</FieldError>}
+          </Field>
+        </div>
+
+        <section className="record-safety border border-line rounded p-4 flex flex-col gap-3">
+          <h3 className="text-sm font-bold text-danger m-0">Archive account</h3>
+          <p className="text-xs text-ink-soft/60">
+            Active people and routes are archived together and can be restored from the recovery desk.
+          </p>
+          <div className="flex items-center gap-3">
+            <Input
               aria-label="Archive reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Required archive reason"
+              className="flex-1"
             />
             <Button
               variant="ghost"
@@ -119,8 +175,9 @@ function CompanyDialog({
                   api.request(`/api/companies/${company.id}/archive`, { method: 'POST', body: { reason } }),
                 )
               }
+              className="text-danger hover:bg-danger/5 flex items-center gap-1.5"
             >
-              <Archive size={15} /> Archive company
+              <Archive size={15} /> Archive
             </Button>
           </div>
         </section>
@@ -148,6 +205,7 @@ export function CompanyDetailPage({
   const [noteError, setNoteError] = useState('');
   const [noteBusy, setNoteBusy] = useState(false);
   const company = companies.find((item) => item.id === id);
+
   if (!company)
     return (
       <div className="empty-state">
@@ -155,9 +213,11 @@ export function CompanyDetailPage({
         <Link to="/companies">Return to companies</Link>
       </div>
     );
+
   const companyPeople = people.filter((person) => person.companyId === company.id && !person.archivedAt);
   const companyRoutes = routes.filter((route) => route.companyId === company.id && !route.archivedAt);
   const peopleById = new Map(people.map((person) => [person.id, person]));
+
   async function recordNote() {
     if (!note.trim()) return;
     setNoteBusy(true);
@@ -175,12 +235,14 @@ export function CompanyDetailPage({
       setNoteBusy(false);
     }
   }
+
   return (
     <section className="company-detail">
       <Link to="/companies" className="back-link">
-        <ArrowLeft size={16} /> Companies
+        <ArrowLeft size={16} className="mr-1.5" /> Companies
       </Link>
-      <header className="company-hero">
+
+      <header className="company-hero mb-6">
         <div className="company-monogram company-monogram--hero">{company.name.slice(0, 1)}</div>
         <div>
           <span className="page-eyebrow">Account intelligence</span>
@@ -192,14 +254,19 @@ export function CompanyDetailPage({
         </div>
         <Badge tone={company.status === 'Won' ? 'sage' : 'burgundy'}>{company.status}</Badge>
         <Button variant="secondary" onClick={() => setEditOpen(true)}>
-          <Edit3 size={15} /> Edit account
+          <Edit3 size={15} className="mr-1.5" /> Edit account
         </Button>
       </header>
+
       <div className="detail-grid">
-        <section className="detail-panel detail-panel--wide">
-          <header>
-            <span className="panel-eyebrow">Relationship paths</span>
-            <h2>{companyRoutes.length} active routes</h2>
+        <Card className="detail-panel detail-panel--wide">
+          <header className="mb-4">
+            <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+              Relationship paths
+            </span>
+            <h2 className="m-0 text-lg font-display font-semibold text-ink mt-1">
+              {companyRoutes.length} active routes
+            </h2>
           </header>
           <div className="detail-routes">
             {companyRoutes.length ? (
@@ -207,14 +274,18 @@ export function CompanyDetailPage({
                 const target = peopleById.get(route.targetPersonId);
                 const mutual = peopleById.get(route.mutualPersonId);
                 return (
-                  <Link to={`/routes/${route.id}`} key={route.id}>
+                  <Link
+                    to={`/routes/${route.id}`}
+                    key={route.id}
+                    className="block p-3 rounded hover:bg-porcelain transition-all"
+                  >
                     <RelationshipThread
                       target={target?.name || 'Target'}
                       mutual={mutual?.name || 'Mutual'}
                       owner={route.owner}
                       stage={route.stage}
                     />
-                    <footer>
+                    <footer className="flex justify-between items-center text-xs text-ink-soft/60 mt-2">
                       <strong>{route.nextAction || 'Next action not set'}</strong>
                       <span>{route.dueDate || 'No due date'}</span>
                     </footer>
@@ -222,78 +293,101 @@ export function CompanyDetailPage({
                 );
               })
             ) : (
-              <div className="column-empty">No active routes for this company.</div>
+              <div className="column-empty text-center text-ink-soft/40 py-6">No active routes for this company.</div>
             )}
           </div>
-        </section>
-        <aside className="detail-panel">
-          <span className="panel-eyebrow">Primary contact</span>
-          <h2>{company.contactName || 'Not set'}</h2>
-          {company.email ? (
-            <a href={`mailto:${company.email}`}>
-              <Mail size={16} />
-              {company.email}
-            </a>
-          ) : null}
-          {company.phone ? (
-            <a href={`tel:${company.phone}`}>
-              <Phone size={16} />
-              {company.phone}
-            </a>
-          ) : null}
-        </aside>
-        <section className="detail-panel">
-          <span className="panel-eyebrow">People</span>
-          <div className="compact-people">
+        </Card>
+
+        <Card className="detail-panel">
+          <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+            Primary contact
+          </span>
+          <h2 className="text-lg font-display font-semibold text-ink mt-1">{company.contactName || 'Not set'}</h2>
+          <div className="flex flex-col gap-2 mt-4 text-sm text-ink-soft">
+            {company.email && (
+              <a href={`mailto:${company.email}`} className="flex items-center gap-2 hover:text-burgundy">
+                <Mail size={16} />
+                {company.email}
+              </a>
+            )}
+            {company.phone && (
+              <a href={`tel:${company.phone}`} className="flex items-center gap-2 hover:text-burgundy">
+                <Phone size={16} />
+                {company.phone}
+              </a>
+            )}
+          </div>
+        </Card>
+
+        <Card className="detail-panel">
+          <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper font-semibold">
+            People
+          </span>
+          <div className="compact-people mt-3 flex flex-col gap-2">
             {companyPeople.map((person) => (
-              <article key={person.id}>
-                <span className="person-avatar">{person.name.slice(0, 1)}</span>
-                <div>
-                  <strong>{person.name}</strong>
-                  <small>{person.title}</small>
+              <article key={person.id} className="flex items-center justify-between p-2 rounded hover:bg-porcelain">
+                <div className="flex items-center gap-2">
+                  <span className="person-avatar">{person.name.slice(0, 1)}</span>
+                  <div className="flex flex-col">
+                    <strong className="text-sm font-semibold">{person.name}</strong>
+                    <small className="text-xs text-ink-soft/60">{person.title}</small>
+                  </div>
                 </div>
-                <ExternalLink size={14} />
+                <ExternalLink size={14} className="text-ink-soft/40" />
               </article>
             ))}
           </div>
-        </section>
-        <section className="detail-panel detail-panel--wide">
-          <span className="panel-eyebrow">Recent activity</span>
-          <div className="note-composer">
-            {noteError ? <span role="alert">{noteError}</span> : null}
-            <label>
-              <MessageSquare size={16} />
-              <span className="sr-only">Add company note</span>
-              <input
+        </Card>
+
+        <Card className="detail-panel detail-panel--wide">
+          <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+            Recent activity
+          </span>
+
+          <div className="note-composer flex items-center gap-3 mt-3 mb-6">
+            <div className="relative flex-1">
+              <MessageSquare size={16} className="absolute left-3 top-3 text-ink-soft/40 pointer-events-none" />
+              <Input
                 aria-label="Add company note"
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
                 placeholder="Record a useful account note…"
+                className="pl-9"
               />
-            </label>
-            <Button variant="secondary" disabled={!note.trim() || noteBusy} onClick={recordNote}>
+            </div>
+            <Button variant="secondary" disabled={!note.trim() || noteBusy} onClick={recordNote} className="h-10">
               {noteBusy ? 'Recording…' : 'Record note'}
             </Button>
           </div>
-          <div className="timeline">
+
+          {noteError && (
+            <Alert variant="danger" className="mb-4">
+              {noteError}
+            </Alert>
+          )}
+
+          <div className="timeline flex flex-col gap-4">
             {activities
               .filter((activity) => activity.companyId === company.id)
               .slice()
               .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
               .slice(0, 8)
               .map((activity) => (
-                <article key={activity.id}>
-                  <span />
+                <article
+                  key={activity.id}
+                  className="relative pl-6 pb-4 border-l border-line/60 last:border-0 last:pb-0"
+                >
+                  <span className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-copper border-2 border-paper" />
                   <div>
-                    <strong>{activity.summary}</strong>
-                    <p>
+                    <strong className="text-sm font-semibold">{activity.summary}</strong>
+                    <p className="text-xs text-ink-soft/50 mt-1">
                       {activity.actor} · {new Date(activity.timestamp).toLocaleDateString()}
                     </p>
                   </div>
                 </article>
               ))}
           </div>
-        </section>
+        </Card>
       </div>
       {editOpen ? <CompanyDialog company={company} onClose={() => setEditOpen(false)} onRefresh={onRefresh} /> : null}
     </section>

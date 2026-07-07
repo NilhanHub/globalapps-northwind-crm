@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ArrowUpRight, CalendarClock, Check, CircleAlert, UserRoundCheck } from 'lucide-react';
-import { Badge, Button } from '@northwind/ui';
+import { Badge, Button, Card, Select, Alert, IconButton, Input } from '@northwind/ui';
 import type { Company, Person, Route } from '@northwind/domain';
 import { PageHeader } from '../components/page-header';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +26,7 @@ export function DashboardPage({
   const overdue = active.filter((route) => route.dueDate && route.dueDate < today);
   const peopleById = new Map(people.map((person) => [person.id, person]));
   const owners = ['Paul', 'Jeremy', 'Nilhan'] as const;
+
   async function updateRoute(route: Route, changes: Record<string, unknown>, message: string) {
     setError('');
     try {
@@ -40,16 +41,19 @@ export function DashboardPage({
       setError(caught instanceof ApiError ? caught.message : 'The route could not be updated.');
     }
   }
+
   return (
     <section className="workspace">
       <div className="sr-only" role="status" aria-live="polite">
         {status}
       </div>
-      {error ? (
-        <div className="form-alert" role="alert">
+
+      {error && (
+        <Alert variant="danger" className="mb-4">
           {error}
-        </div>
-      ) : null}
+        </Alert>
+      )}
+
       <PageHeader
         eyebrow="Daily command"
         title="Owner dashboard"
@@ -61,12 +65,15 @@ export function DashboardPage({
           { label: 'Accounts', value: companies.filter((company) => !company.archivedAt).length },
         ]}
       />
+
       <div className="dashboard-grid">
-        <section className="dashboard-panel dashboard-panel--owners">
-          <header>
+        <Card className="dashboard-panel dashboard-panel--owners">
+          <header className="flex justify-between items-start mb-5 text-burgundy">
             <div>
-              <span className="panel-eyebrow">Ownership</span>
-              <h2>Route coverage</h2>
+              <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+                Ownership
+              </span>
+              <h2 className="m-0 text-xl font-display font-semibold text-ink">Route coverage</h2>
             </div>
             <UserRoundCheck />
           </header>
@@ -88,12 +95,15 @@ export function DashboardPage({
               );
             })}
           </div>
-        </section>
-        <section className="dashboard-panel">
-          <header>
+        </Card>
+
+        <Card className="dashboard-panel">
+          <header className="flex justify-between items-start mb-5 text-burgundy">
             <div>
-              <span className="panel-eyebrow">Work queue</span>
-              <h2>Needs attention</h2>
+              <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+                Work queue
+              </span>
+              <h2 className="m-0 text-xl font-display font-semibold text-ink">Needs attention</h2>
             </div>
             <CircleAlert />
           </header>
@@ -105,34 +115,42 @@ export function DashboardPage({
                   <span>{peopleById.get(route.targetPersonId)?.name}</span>
                 </div>
                 {route.owner === 'unassigned' ? (
-                  <select
+                  <Select
                     aria-label={`Assign ${route.companyName}`}
                     value={route.owner}
                     onChange={(event) =>
                       updateRoute(route, { owner: event.target.value }, `${route.companyName} assigned.`)
                     }
+                    className="max-w-[120px] h-8 py-0.5"
                   >
                     <option value="unassigned">Assign…</option>
                     <option>Paul</option>
                     <option>Jeremy</option>
                     <option>Nilhan</option>
                     <option value="other">Other</option>
-                  </select>
+                  </Select>
                 ) : (
                   <Badge tone={route.dueDate && route.dueDate < today ? 'copper' : 'neutral'}>{route.owner}</Badge>
                 )}
-                <button aria-label={`Open ${route.companyName}`} onClick={() => navigate(`/routes/${route.id}`)}>
+                <IconButton
+                  variant="ghost"
+                  aria-label={`Open ${route.companyName}`}
+                  onClick={() => navigate(`/routes/${route.id}`)}
+                >
                   <ArrowUpRight size={16} />
-                </button>
+                </IconButton>
               </article>
             ))}
           </div>
-        </section>
-        <section className="dashboard-panel dashboard-panel--wide">
-          <header>
+        </Card>
+
+        <Card className="dashboard-panel dashboard-panel--wide">
+          <header className="flex justify-between items-start mb-5 text-burgundy">
             <div>
-              <span className="panel-eyebrow">Next actions</span>
-              <h2>Upcoming relationship moves</h2>
+              <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
+                Next actions
+              </span>
+              <h2 className="m-0 text-xl font-display font-semibold text-ink">Upcoming relationship moves</h2>
             </div>
             <CalendarClock />
           </header>
@@ -141,39 +159,48 @@ export function DashboardPage({
               .filter((route) => route.nextAction)
               .slice(0, 6)
               .map((route) => (
-                <article key={route.id}>
-                  <label className="inline-date">
+                <article
+                  key={route.id}
+                  className="p-4 border-l-3 border-copper rounded bg-porcelain flex flex-col gap-2"
+                >
+                  <label className="inline-date block">
                     <span className="sr-only">Reschedule {route.companyName}</span>
-                    <input
+                    <Input
                       type="date"
                       aria-label={`Reschedule ${route.companyName}`}
                       value={route.dueDate}
                       onChange={(event) =>
                         updateRoute(route, { dueDate: event.target.value }, `${route.companyName} rescheduled.`)
                       }
+                      className="border border-line rounded px-2 py-0.5 text-xs bg-paper text-burgundy font-data font-bold"
                     />
                   </label>
-                  <h3>{route.nextAction}</h3>
-                  <p>
+                  <h3 className="m-0 text-sm font-display font-semibold text-ink leading-tight">{route.nextAction}</h3>
+                  <p className="text-xs text-ink-soft/70">
                     {route.companyName} · {peopleById.get(route.targetPersonId)?.name}
                   </p>
-                  <div className="inline-actions">
+                  <div className="inline-actions flex justify-between gap-2 mt-2">
                     <Button
                       variant="ghost"
                       onClick={() =>
                         updateRoute(route, { nextAction: '', dueDate: '' }, `${route.companyName} action completed.`)
                       }
+                      className="h-7 px-2 text-[10px]"
                     >
-                      <Check size={14} /> Complete
+                      <Check size={12} className="mr-1" /> Complete
                     </Button>
-                    <Button variant="ghost" onClick={() => navigate(`/routes/${route.id}`)}>
-                      Open <ArrowUpRight size={14} />
+                    <Button
+                      variant="ghost"
+                      onClick={() => navigate(`/routes/${route.id}`)}
+                      className="h-7 px-2 text-[10px]"
+                    >
+                      Open <ArrowUpRight size={12} className="ml-1" />
                     </Button>
                   </div>
                 </article>
               ))}
           </div>
-        </section>
+        </Card>
       </div>
     </section>
   );

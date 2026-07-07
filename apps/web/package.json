@@ -25,5 +25,12 @@
     "react-router-dom": "latest",
     "zod": "latest"
   },
-  "devDependencies": { "@types/react": "latest", "@types/react-dom": "latest", "@vitejs/plugin-react": "latest", "vite": "latest" }
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "tailwindcss": "^4.3.2",
+    "vite": "latest"
+  }
 }

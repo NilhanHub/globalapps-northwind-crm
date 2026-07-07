@@ -1,6 +1,24 @@
 import { useMemo, useState } from 'react';
-import { Archive, Link2, Merge, Plus, Search, UsersRound } from 'lucide-react';
-import { Badge, Button, Dialog } from '@northwind/ui';
+import { Archive, Link2, Merge, Plus, UsersRound } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Badge,
+  Button,
+  Dialog,
+  Toolbar,
+  SearchField,
+  EmptyState,
+  Input,
+  Select,
+  Checkbox,
+  Field,
+  Label,
+  FieldError,
+  Alert,
+  IconButton,
+} from '@northwind/ui';
 import type { Company, Person, Route } from '@northwind/domain';
 import { PageHeader } from '../components/page-header';
 import { api } from '../api';
@@ -17,6 +35,18 @@ const isPossibleDuplicate = (person: Person, all: Person[]) =>
           (!person.companyId || !other.companyId || person.companyId === other.companyId))),
   );
 
+const personSchema = z.object({
+  name: z.string().min(1, { message: 'Name is required' }),
+  title: z.string(),
+  companyId: z.string(),
+});
+
+type PersonSchema = {
+  name: string;
+  title: string;
+  companyId: string;
+};
+
 function PersonDialog({
   person,
   people,
@@ -30,17 +60,29 @@ function PersonDialog({
   onClose(): void;
   onRefresh: (() => Promise<unknown>) | undefined;
 }) {
-  const [name, setName] = useState(person.name);
-  const [title, setTitle] = useState(person.title);
-  const [companyId, setCompanyId] = useState(person.companyId);
   const [mutualIds, setMutualIds] = useState(new Set(person.mutualPersonIds));
   const [reason, setReason] = useState('');
   const [mergeId, setMergeId] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<PersonSchema>({
+    resolver: zodResolver(personSchema),
+    defaultValues: {
+      name: person.name,
+      title: person.title || '',
+      companyId: person.companyId || '',
+    },
+  });
+
   const mutuals = people.filter(
     (item) => item.id !== person.id && !item.archivedAt && ['mutual', 'both'].includes(item.type),
   );
+
   async function run(label: string, task: () => Promise<unknown>) {
     setBusy(label);
     setError('');
@@ -54,6 +96,22 @@ function PersonDialog({
       setBusy('');
     }
   }
+
+  const handleSave = (values: PersonSchema) => {
+    run('save', () =>
+      api.request(`/api/people/${person.id}`, {
+        method: 'PATCH',
+        headers: { 'If-Match': String(person.version) },
+        body: {
+          name: values.name,
+          title: values.title,
+          companyId: values.companyId,
+          mutualPersonIds: [...mutualIds],
+        },
+      }),
+    );
+  };
+
   return (
     <Dialog
       open
@@ -67,61 +125,59 @@ function PersonDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            disabled={Boolean(busy) || !name.trim()}
-            onClick={() =>
-              run('save', () =>
-                api.request(`/api/people/${person.id}`, {
-                  method: 'PATCH',
-                  headers: { 'If-Match': String(person.version) },
-                  body: { name, title, companyId, mutualPersonIds: [...mutualIds] },
-                }),
-              )
-            }
-          >
+          <Button disabled={Boolean(busy)} onClick={handleSubmit(handleSave)}>
             {busy === 'save' ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
-      <div className="entity-form">
-        {error ? (
-          <div className="form-alert field--wide" role="alert">
-            {error}
-          </div>
-        ) : null}
-        <label className="field field--wide">
-          Name
-          <input value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label className="field">
-          Role
-          <input value={title} onChange={(event) => setTitle(event.target.value)} />
-        </label>
-        <label className="field">
-          Company
-          <select value={companyId} onChange={(event) => setCompanyId(event.target.value)}>
-            <option value="">Network contact</option>
-            {companies
-              .filter((item) => !item.archivedAt)
-              .map((item) => (
-                <option value={item.id} key={item.id}>
-                  {item.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        {['target', 'both'].includes(person.type) ? (
-          <fieldset className="relationship-picker field--wide">
-            <legend>
-              <Link2 size={15} /> Mutual contacts
+      <div className="entity-form flex flex-col gap-5">
+        {error && <Alert variant="danger">{error}</Alert>}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field className="md:col-span-2">
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" {...register('name')} />
+            {errors.name && <FieldError>{errors.name.message}</FieldError>}
+          </Field>
+
+          <Field>
+            <Label htmlFor="title">Role</Label>
+            <Input id="title" {...register('title')} />
+            {errors.title && <FieldError>{errors.title.message}</FieldError>}
+          </Field>
+
+          <Field>
+            <Label htmlFor="companyId">Company</Label>
+            <Select id="companyId" {...register('companyId')}>
+              <option value="">Network contact</option>
+              {companies
+                .filter((item) => !item.archivedAt)
+                .map((item) => (
+                  <option value={item.id} key={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+            </Select>
+            {errors.companyId && <FieldError>{errors.companyId.message}</FieldError>}
+          </Field>
+        </div>
+
+        {['target', 'both'].includes(person.type) && (
+          <fieldset className="relationship-picker border border-line rounded p-4">
+            <legend className="px-1.5 text-xs font-semibold uppercase tracking-wider text-copper flex items-center gap-1.5">
+              <Link2 size={14} /> Mutual contacts
             </legend>
-            <p>Attach as many trusted connectors as are useful. Links remain suggestions until a route is created.</p>
-            <div>
+            <p className="text-xs text-ink-soft/60 mb-3">
+              Attach as many trusted connectors as are useful. Links remain suggestions until a route is created.
+            </p>
+            <div className="max-h-48 overflow-y-auto grid grid-cols-1 gap-2">
               {mutuals.map((mutual) => (
-                <label key={mutual.id}>
-                  <input
-                    type="checkbox"
+                <label
+                  key={mutual.id}
+                  className="flex items-center gap-2.5 p-2 rounded hover:bg-porcelain cursor-pointer text-sm"
+                >
+                  <Checkbox
                     aria-label={mutual.name}
                     checked={mutualIds.has(mutual.id)}
                     onChange={() =>
@@ -133,30 +189,33 @@ function PersonDialog({
                       })
                     }
                   />
-                  <span>
-                    {mutual.name}
-                    <small>{mutual.title || 'Relationship not set'}</small>
+                  <span className="flex flex-col">
+                    <strong>{mutual.name}</strong>
+                    <small className="text-xs text-ink-soft/60">{mutual.title || 'Relationship not set'}</small>
                   </span>
                 </label>
               ))}
             </div>
           </fieldset>
-        ) : null}
-        <section className="record-safety field--wide">
-          <h3>Record safety</h3>
-          <label className="field">
-            Reason
-            <input
+        )}
+
+        <section className="record-safety border border-line rounded p-4 flex flex-col gap-4">
+          <h3 className="text-sm font-bold text-danger m-0">Record safety</h3>
+          <Field>
+            <Label htmlFor="reason">Reason</Label>
+            <Input
+              id="reason"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Required for archive or merge"
             />
-          </label>
-          <div className="merge-row">
-            <select
+          </Field>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
               aria-label="Duplicate person to merge"
               value={mergeId}
               onChange={(event) => setMergeId(event.target.value)}
+              className="flex-1 min-w-[150px]"
             >
               <option value="">Choose duplicate…</option>
               {people
@@ -166,7 +225,7 @@ function PersonDialog({
                     {item.name}
                   </option>
                 ))}
-            </select>
+            </Select>
             <Button
               variant="secondary"
               disabled={!mergeId || !reason || Boolean(busy)}
@@ -178,6 +237,7 @@ function PersonDialog({
                   }),
                 )
               }
+              className="flex items-center gap-1.5"
             >
               <Merge size={15} /> Merge
             </Button>
@@ -190,8 +250,9 @@ function PersonDialog({
                   api.request(`/api/people/${person.id}/archive`, { method: 'POST', body: { reason } }),
                 )
               }
+              className="text-danger hover:text-danger/90 flex items-center gap-1.5"
             >
-              <Archive size={15} /> Archive person
+              <Archive size={15} /> Archive
             </Button>
           </div>
         </section>
@@ -253,7 +314,7 @@ export function PeoplePage({
         ]}
         actions={
           <Button onClick={onCreate}>
-            <Plus size={16} /> Add person
+            <Plus size={16} className="mr-2" /> Add person
           </Button>
         }
       />
@@ -276,19 +337,16 @@ export function PeoplePage({
           </button>
         ))}
       </div>
-      <div className="workspace-toolbar">
-        <label className="search-field">
-          <Search size={17} />
-          <span className="sr-only">Search people</span>
-          <input
-            type="search"
-            aria-label="Search people"
-            placeholder="Search people, roles, companies…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
-      </div>
+
+      <Toolbar className="workspace-toolbar mb-6">
+        <SearchField
+          aria-label="Search people"
+          placeholder="Search people, roles, companies…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </Toolbar>
+
       {visible.length ? (
         <div className="data-table-wrap">
           <table className="data-table people-table">
@@ -332,13 +390,13 @@ export function PeoplePage({
                     <td>{active}</td>
                     <td>{(person as Person & { lastActivityAt?: string }).lastActivityAt || 'No activity'}</td>
                     <td>
-                      <button
-                        className="row-action"
+                      <IconButton
+                        variant="ghost"
                         aria-label={`Manage ${person.name}`}
                         onClick={() => setSelected(person)}
                       >
                         {person.type === 'target' ? <Merge size={16} /> : <UsersRound size={16} />}
-                      </button>
+                      </IconButton>
                     </td>
                   </tr>
                 );
@@ -347,13 +405,13 @@ export function PeoplePage({
           </table>
         </div>
       ) : (
-        <div className="empty-state">
-          <UsersRound />
-          <h2>{type === 'duplicates' ? 'No likely duplicates' : 'No people found'}</h2>
-          <p>
-            {type === 'duplicates' ? 'Names and LinkedIn URLs look distinct.' : 'Try another search or add a person.'}
-          </p>
-        </div>
+        <EmptyState
+          title={type === 'duplicates' ? 'No likely duplicates' : 'No people found'}
+          description={
+            type === 'duplicates' ? 'Names and LinkedIn URLs look distinct.' : 'Try another search or add a person.'
+          }
+          icon={<UsersRound size={24} />}
+        />
       )}
       {selected ? (
         <PersonDialog

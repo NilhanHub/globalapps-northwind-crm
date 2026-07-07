@@ -1,7 +1,7 @@
 import { useEffect, useState, type PropsWithChildren } from 'react';
 import { Building2, Gauge, LogOut, Network, Route, Search, UsersRound } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Dialog } from '@northwind/ui';
+import { Dialog, IconButton } from '@northwind/ui';
 import { useAuth } from './auth';
 
 const items = [
@@ -66,9 +66,9 @@ export function AppShell({ children }: PropsWithChildren) {
               <strong>{auth.session?.actor || 'Northwind'}</strong>
               <small>Shared account</small>
             </div>
-            <button aria-label="Log out" onClick={() => auth.logout()}>
+            <IconButton variant="ghost" aria-label="Log out" onClick={() => auth.logout()}>
               <LogOut size={15} />
-            </button>
+            </IconButton>
           </div>
         </header>
         <main className="app-content">{children}</main>

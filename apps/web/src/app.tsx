@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Skeleton, Button, Alert } from '@northwind/ui';
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './app-shell';
@@ -37,9 +38,13 @@ function ProtectedApp() {
     return (
       <AppShell>
         <div className="skeleton-page" role="status" aria-label="Loading workspace">
-          <div />
-          <div />
-          <div />
+          <Skeleton className="h-8 w-48 mb-4" />
+          <Skeleton className="h-4 w-96 mb-8" />
+          <div className="grid grid-cols-3 gap-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
         </div>
       </AppShell>
     );
@@ -47,9 +52,12 @@ function ProtectedApp() {
     return (
       <AppShell>
         <div className="error-panel" role="alert">
-          <h1>Northwind could not load</h1>
-          <p>The workspace data is currently unavailable.</p>
-          <button onClick={() => bootstrap.refetch()}>Try again</button>
+          <Alert variant="danger" title="Northwind could not load">
+            The workspace data is currently unavailable.
+          </Alert>
+          <Button variant="secondary" className="mt-4" onClick={() => bootstrap.refetch()}>
+            Try again
+          </Button>
         </div>
       </AppShell>
     );
