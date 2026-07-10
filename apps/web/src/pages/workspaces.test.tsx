@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CompaniesPage } from './companies-page';
 import { RoutesPage } from './routes-page';
 import { PeoplePage } from './people-page';
 import { ArchivedPage } from './archived-page';
+import { api } from '../api';
 
 const companies = [
   {
@@ -82,7 +83,10 @@ const routes = [
   },
 ];
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('CRM workspaces', () => {
   it('renders a searchable company command surface', () => {
@@ -108,6 +112,19 @@ describe('CRM workspaces', () => {
     expect(screen.getByRole('heading', { name: 'Intro requested' })).toBeVisible();
     expect(screen.getByRole('checkbox', { name: 'Select route for Paul Dunk' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Move Paul Dunk to another stage' })).toBeVisible();
+  });
+
+  it('keeps selected routes intact and explains a failed bulk update', async () => {
+    vi.spyOn(api, 'request').mockRejectedValue(new Error('Network unavailable'));
+    render(
+      <MemoryRouter>
+        <RoutesPage companies={companies as never} people={people as never} routes={routes as never} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select route for Paul Dunk' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update selected' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('selected routes could not be updated'));
+    expect(screen.getByText('1 selected')).toBeVisible();
   });
 
   it('exposes person relationship management from the directory', async () => {

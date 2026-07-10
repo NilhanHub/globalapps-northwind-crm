@@ -76,6 +76,12 @@ test('creates a reusable relationship and advances an audited route', async ({ p
   await page.getByRole('button', { name: 'Log call' }).click();
   await expect(page.getByText('Action recorded.')).toBeVisible();
   await expect(page.getByText('Logged a call to the mutual contact')).toBeVisible();
+
+  await page.getByLabel('Won/dead reason').fill('Qualified relationship converted during release verification.');
+  await page.getByRole('button', { name: 'Mark won' }).click();
+  await expect(page.getByRole('dialog', { name: 'Confirm won outcome' })).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm won' }).click();
+  await expect(page.getByText('Route marked won')).toBeVisible();
 });
 
 test('verified release breakpoints avoid unintended page overflow', async ({ page, isMobile }) => {

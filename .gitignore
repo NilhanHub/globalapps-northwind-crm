@@ -7,6 +7,13 @@ test-results/
 
 # Generated UI-refinement evidence (screenshots, reports, zips)
 Evidence/
+Evidence*.zip
+Artifact_Verification/
+*_capture.png
+
+# Local agent orchestration and one-off prompt packs
+.agents/
+Agent_Prompt_Packs/
 
 # Playwright capture artifacts
 .playwright-cli/

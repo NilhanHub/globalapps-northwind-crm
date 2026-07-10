@@ -1,8 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Archive, CheckCircle2, MessageSquare, Phone, RotateCcw, Send, Trophy, XCircle } from 'lucide-react';
-import { Badge, Button, RelationshipThread, Card, Select, Alert, Input, Textarea, Label, Field } from '@northwind/ui';
+import {
+  Badge,
+  Button,
+  RelationshipThread,
+  Card,
+  Select,
+  Alert,
+  Input,
+  Textarea,
+  Label,
+  Field,
+  Dialog,
+} from '@northwind/ui';
 import type { BootstrapData } from '../types';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { ApiError } from '@northwind/api-client';
 
@@ -17,6 +29,7 @@ const actionButtons = [
 
 export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRefresh(): Promise<unknown> }) {
   const { id } = useParams();
+  const navigate = useNavigate();
   const route = data.routes.find((item) => item.id === id);
   const [details, setDetails] = useState('');
   const [nextAction, setNextAction] = useState(route?.nextAction ?? '');
@@ -25,6 +38,13 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [undo, setUndo] = useState<{ activityId: string } | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<'mark_won' | 'mark_dead' | 'archive' | null>(null);
+
+  useEffect(() => {
+    if (!undo) return;
+    const timeout = window.setTimeout(() => setUndo(null), 30_000);
+    return () => window.clearTimeout(timeout);
+  }, [undo]);
 
   const timeline = useMemo(
     () =>
@@ -74,6 +94,27 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
     } finally {
       setBusy('');
     }
+  }
+
+  async function archiveRoute() {
+    setBusy('archive');
+    setError('');
+    try {
+      await api.request(`/api/routes/${route!.id}/archive`, { method: 'POST', body: { reason } });
+      await onRefresh();
+      navigate('/routes');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'The route could not be archived.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function confirmPendingAction() {
+    const action = pendingConfirmation;
+    setPendingConfirmation(null);
+    if (action === 'archive') await archiveRoute();
+    else if (action) await perform(action);
   }
 
   return (
@@ -196,12 +237,16 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
           </div>
 
           <div className="terminal-actions border-t border-line/60 pt-4 flex items-center justify-end gap-3">
-            <Button variant="secondary" onClick={() => perform('mark_won')} disabled={!reason || Boolean(busy)}>
+            <Button
+              variant="secondary"
+              onClick={() => setPendingConfirmation('mark_won')}
+              disabled={!reason || Boolean(busy)}
+            >
               <Trophy size={16} className="mr-2 text-burgundy" /> Mark won
             </Button>
             <Button
               variant="ghost"
-              onClick={() => perform('mark_dead')}
+              onClick={() => setPendingConfirmation('mark_dead')}
               disabled={!reason || Boolean(busy)}
               className="text-danger hover:bg-danger/5"
             >
@@ -210,14 +255,14 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
             <Button
               variant="ghost"
               className="text-ink-soft"
-              onClick={async () => {
+              onClick={() => {
                 if (!reason) {
                   setError('Enter a reason before archiving.');
                   return;
                 }
-                await api.request(`/api/routes/${route.id}/archive`, { method: 'POST', body: { reason } });
-                await onRefresh();
+                setPendingConfirmation('archive');
               }}
+              disabled={Boolean(busy)}
             >
               <Archive size={16} className="mr-2" /> Archive
             </Button>
@@ -279,6 +324,44 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
           )}
         </Card>
       </div>
+
+      <Dialog
+        open={Boolean(pendingConfirmation)}
+        onOpenChange={(open) => {
+          if (!open && !busy) setPendingConfirmation(null);
+        }}
+        title={
+          pendingConfirmation === 'mark_won'
+            ? 'Confirm won outcome'
+            : pendingConfirmation === 'mark_dead'
+              ? 'Confirm dead outcome'
+              : 'Confirm route archive'
+        }
+        description="This change is recorded in the audit trail. Check the reason before continuing."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPendingConfirmation(null)} disabled={Boolean(busy)}>
+              Cancel
+            </Button>
+            <Button
+              variant={pendingConfirmation === 'mark_dead' ? 'danger' : 'primary'}
+              onClick={confirmPendingAction}
+              disabled={Boolean(busy)}
+            >
+              {pendingConfirmation === 'mark_won'
+                ? 'Confirm won'
+                : pendingConfirmation === 'mark_dead'
+                  ? 'Confirm dead'
+                  : 'Confirm archive'}
+            </Button>
+          </>
+        }
+      >
+        <div className="record-safety">
+          <h3>Recorded reason</h3>
+          <p>{reason}</p>
+        </div>
+      </Dialog>
     </section>
   );
 }

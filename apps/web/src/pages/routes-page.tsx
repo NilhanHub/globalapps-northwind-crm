@@ -226,6 +226,7 @@ export function RoutesPage({
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const [localRoutes, setLocalRoutes] = useState<RelationshipRoute[]>(routes);
 
@@ -261,10 +262,11 @@ export function RoutesPage({
       await api.request(`/api/routes/${routeId}/actions`, { method: 'POST', body: { action: 'move_stage', stage } });
       setStatus(`Route moved to ${stage}.`);
       await onRefresh?.();
+      return true;
     } catch (caught) {
       const msg = caught instanceof ApiError ? caught.message : 'The route could not be updated.';
       setError(msg);
-      throw caught;
+      return false;
     }
   }
 
@@ -282,9 +284,7 @@ export function RoutesPage({
       const previousRoutes = localRoutes;
       // Optimistic update
       setLocalRoutes((current) => current.map((r) => (r.id === route.id ? { ...r, stage } : r)));
-      try {
-        await move(route.id, stage);
-      } catch {
+      if (!(await move(route.id, stage))) {
         // Rollback on failure
         setLocalRoutes(previousRoutes);
       }
@@ -296,13 +296,21 @@ export function RoutesPage({
   }
 
   async function applyBulk() {
-    await api.request('/api/routes/bulk/actions', {
-      method: 'POST',
-      body: { routeIds: [...selected], owner: bulkOwner, dueDate: bulkDate, nextAction: bulkAction },
-    });
-    setStatus(`${selected.size} routes updated.`);
-    setSelected(new Set());
-    await onRefresh?.();
+    setBulkBusy(true);
+    setError('');
+    try {
+      await api.request('/api/routes/bulk/actions', {
+        method: 'POST',
+        body: { routeIds: [...selected], owner: bulkOwner, dueDate: bulkDate, nextAction: bulkAction },
+      });
+      setStatus(`${selected.size} routes updated.`);
+      setSelected(new Set());
+      await onRefresh?.();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'The selected routes could not be updated. Try again.');
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   return (
@@ -418,8 +426,8 @@ export function RoutesPage({
             </label>
           </div>
           <div className="flex items-center gap-2 ml-auto">
-            <Button onClick={applyBulk} className="h-8 py-0">
-              Update selected
+            <Button onClick={applyBulk} className="h-8 py-0" disabled={bulkBusy}>
+              {bulkBusy ? 'Updating…' : 'Update selected'}
             </Button>
             <Button variant="ghost" onClick={() => setSelected(new Set())} className="h-8 py-0">
               Clear
@@ -428,7 +436,7 @@ export function RoutesPage({
         </div>
       ) : null}
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={onDragCancel}>
-        <div className="route-board" aria-label="Warm introduction routes">
+        <div className="route-board" aria-label="Warm introduction routes" tabIndex={0}>
           {stages.map((stage) => {
             const stageRoutes = visible.filter((route) => route.stage === stage);
             return (
@@ -450,7 +458,7 @@ export function RoutesPage({
                         })
                       }
                       onOpen={() => navigate(`/routes/${route.id}`)}
-                      onMove={(nextStage) => move(route.id, nextStage)}
+                      onMove={(nextStage) => void move(route.id, nextStage)}
                       isPlaceholder={activeId === route.id}
                     />
                   ))

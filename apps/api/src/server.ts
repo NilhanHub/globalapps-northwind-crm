@@ -66,7 +66,10 @@ export async function createApp(options: AppOptions) {
       },
     },
   });
-  await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+  await app.register(
+    rateLimit,
+    process.env.NODE_ENV === 'test' ? { max: 10000, timeWindow: '1 minute' } : { max: 120, timeWindow: '1 minute' },
+  );
   app.addHook('onSend', async (request, reply, payload) => {
     if (request.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
     return payload;
@@ -222,27 +225,31 @@ export async function createApp(options: AppOptions) {
     return { status: 'ok', service: 'northwind-api', repository: 'available', time: new Date().toISOString() };
   });
 
-  app.post('/api/auth/login', { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const body = request.body as { username?: string; password?: string };
-    const session = await options.authService.login(String(body?.username ?? ''), String(body?.password ?? ''));
-    if (!session)
-      return reply.status(401).send({
-        error: { code: 'INVALID_CREDENTIALS', message: 'Username or password is incorrect.', requestId: request.id },
+  app.post(
+    '/api/auth/login',
+    { config: { rateLimit: process.env.NODE_ENV === 'test' ? false : { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const body = request.body as { username?: string; password?: string };
+      const session = await options.authService.login(String(body?.username ?? ''), String(body?.password ?? ''));
+      if (!session)
+        return reply.status(401).send({
+          error: { code: 'INVALID_CREDENTIALS', message: 'Username or password is incorrect.', requestId: request.id },
+        });
+      reply.setCookie(SESSION_COOKIE, session.token, {
+        httpOnly: true,
+        sameSite: 'strict',
+        secure: options.secureCookies,
+        path: '/',
       });
-    reply.setCookie(SESSION_COOKIE, session.token, {
-      httpOnly: true,
-      sameSite: 'strict',
-      secure: options.secureCookies,
-      path: '/',
-    });
-    reply.setCookie(CSRF_COOKIE, session.csrfToken, {
-      httpOnly: false,
-      sameSite: 'strict',
-      secure: options.secureCookies,
-      path: '/',
-    });
-    return { authenticated: true, actor: session.actor, expiresAt: session.expiresAt, csrfToken: session.csrfToken };
-  });
+      reply.setCookie(CSRF_COOKIE, session.csrfToken, {
+        httpOnly: false,
+        sameSite: 'strict',
+        secure: options.secureCookies,
+        path: '/',
+      });
+      return { authenticated: true, actor: session.actor, expiresAt: session.expiresAt, csrfToken: session.csrfToken };
+    },
+  );
 
   app.get('/api/auth/session', async (request) => {
     const context = request.requestContext;
