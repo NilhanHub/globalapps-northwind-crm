@@ -5,6 +5,8 @@ export type StructuredError = {
   requestId?: string;
 };
 
+export * from './contracts.js';
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,

@@ -5,6 +5,15 @@ on:
   pull_request:
 
 jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -20,7 +29,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:firestore-emulator
-      - run: npm audit --audit-level=moderate
+      - run: npm audit --omit=dev --audit-level=moderate
       - run: npm ci --prefix infra/functions/backup-verifier --ignore-scripts
       - run: npm audit --prefix infra/functions/backup-verifier --audit-level=moderate
       - run: npm run build

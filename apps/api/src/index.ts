@@ -26,6 +26,31 @@ if (!username || !passwordHash)
     'CRM_USERNAME and CRM_PASSWORD_SCRYPT are required. Run npm run auth:hash-password to create a password hash.',
   );
 const agentToken = process.env.CRM_AGENT_TOKEN?.trim() ?? '';
+const scopedAgentTokens = (() => {
+  const encoded = process.env.CRM_AGENT_TOKENS_BASE64?.trim();
+  if (!encoded) return [];
+  try {
+    const parsed = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as Array<{
+      keyId?: unknown;
+      token?: unknown;
+      permissions?: unknown;
+    }>;
+    if (!Array.isArray(parsed)) throw new Error('invalid');
+    return parsed.map((entry) => {
+      const keyId = String(entry.keyId ?? '');
+      const token = String(entry.token ?? '');
+      const permissions = Array.isArray(entry.permissions)
+        ? entry.permissions.filter((permission): permission is 'read' | 'write' =>
+            ['read', 'write'].includes(String(permission)),
+          )
+        : [];
+      if (!/^[a-zA-Z0-9._-]{1,40}$/.test(keyId) || token.length < 24 || !permissions.length) throw new Error('invalid');
+      return { keyId, tokenHash: createHash('sha256').update(token).digest('hex'), permissions };
+    });
+  } catch {
+    throw new Error('CRM_AGENT_TOKENS_BASE64 must encode a valid scoped agent-token array');
+  }
+})();
 const allowedOrigins = (process.env.CRM_CORS_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
@@ -54,8 +79,15 @@ const app = await createApp({
   secureCookies: process.env.NODE_ENV === 'production',
   publicDir: resolve(root, 'apps', 'web', 'dist'),
   ...(agentToken ? { agentTokenHash: createHash('sha256').update(agentToken).digest('hex') } : {}),
+  ...(scopedAgentTokens.length ? { agentTokens: scopedAgentTokens } : {}),
   ...(allowedOrigins.length ? { allowedOrigins } : {}),
   logRequests: true,
+  release: {
+    version: process.env.CRM_APP_VERSION || '2.0.0',
+    commitSha: process.env.CRM_COMMIT_SHA || 'unknown',
+    buildTime: process.env.CRM_BUILD_TIME || 'unknown',
+    repositoryType: repositoryConfig.mode,
+  },
 });
 
 const port = Number(process.env.PORT || 8787);

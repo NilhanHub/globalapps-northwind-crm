@@ -1,4 +1,4 @@
-import type { DocumentSnapshot, Firestore } from '@google-cloud/firestore';
+import type { DocumentReference, DocumentSnapshot, Firestore, Transaction } from '@google-cloud/firestore';
 import { normalizeRecordScope } from '@northwind/domain';
 import {
   FirestoreUnavailableError,
@@ -27,9 +27,10 @@ export function sortFirestoreRecords<T extends Record<string, unknown>>(store: S
 }
 
 const canonical = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  if (Array.isArray(value)) return `[${value.map((item) => canonical(item === undefined ? null : item)).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
       .join(',')}}`;
@@ -70,6 +71,59 @@ export function createFirestoreRepository(db: Firestore): CrmRepository {
     if (!SAFE_SEGMENT.test(id)) throw new Error(`Invalid Firestore record id: ${id}`);
     return db.collection(firestoreCollectionPath(workspaceId, store)).doc(id);
   };
+  const workspaceDoc = (workspaceId: string) => {
+    if (!SAFE_SEGMENT.test(workspaceId)) throw new Error('Invalid workspace identifier for Firestore');
+    return db.collection('workspaces').doc(workspaceId);
+  };
+  const bumpRevision = (transaction: Transaction, reference: DocumentReference, snapshot: DocumentSnapshot) => {
+    const revision = Number(snapshot.data()?.revision ?? 0) + 1;
+    transaction.set(reference, { revision, updatedAt: new Date().toISOString() }, { merge: true });
+  };
+
+  const transact = async (changes: StoreChanges) => {
+    const entries = (Object.entries(changes) as [StoreName, Array<Record<string, unknown>>][]).flatMap(
+      ([store, records]) =>
+        records.map((record) => {
+          const parsed = storeSchemas[store].parse(normalizeRecordScope(record));
+          return { store, record: parsed, reference: doc(parsed.workspaceId, store, parsed.id) };
+        }),
+    );
+    if (entries.length > 450) throw new Error('A cloud transaction cannot contain more than 450 records');
+    try {
+      await db.runTransaction(async (transaction) => {
+        const snapshots: DocumentSnapshot[] = [];
+        for (const entry of entries) snapshots.push(await transaction.get(entry.reference));
+        const workspaceIds = [...new Set(entries.map((entry) => entry.record.workspaceId))];
+        const metaEntries: Array<{ workspaceId: string; reference: DocumentReference; snapshot: DocumentSnapshot }> =
+          [];
+        for (const workspaceId of workspaceIds) {
+          const reference = workspaceDoc(workspaceId);
+          metaEntries.push({ workspaceId, reference, snapshot: await transaction.get(reference) });
+        }
+        const changedWorkspaceIds = new Set<string>();
+        entries.forEach((entry, index) => {
+          const snapshot = snapshots[index]!;
+          const action = validateFirestoreTransition(
+            snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined,
+            entry.record,
+          );
+          if (action === 'create') {
+            transaction.create(entry.reference, entry.record);
+            changedWorkspaceIds.add(entry.record.workspaceId);
+          }
+          if (action === 'update') {
+            transaction.set(entry.reference, entry.record);
+            changedWorkspaceIds.add(entry.record.workspaceId);
+          }
+        });
+        for (const meta of metaEntries) {
+          if (changedWorkspaceIds.has(meta.workspaceId)) bumpRevision(transaction, meta.reference, meta.snapshot);
+        }
+      });
+    } catch (error) {
+      cloudError(error);
+    }
+  };
 
   return {
     async healthCheck() {
@@ -77,6 +131,18 @@ export function createFirestoreRepository(db: Firestore): CrmRepository {
         await db.collection(firestoreCollectionPath('default', 'companies')).limit(1).get();
       } catch (error) {
         cloudError(error);
+      }
+    },
+
+    async getWorkspaceRevision(workspaceId: string) {
+      try {
+        const snapshot = await workspaceDoc(workspaceId).get();
+        return {
+          revision: String(snapshot.data()?.revision ?? 0),
+          updatedAt: String(snapshot.data()?.updatedAt ?? ''),
+        };
+      } catch (error) {
+        return cloudError(error);
       }
     },
 
@@ -97,8 +163,14 @@ export function createFirestoreRepository(db: Firestore): CrmRepository {
       try {
         await db.runTransaction(async (transaction) => {
           const reference = doc(workspaceId, store, record.id);
-          if ((await transaction.get(reference)).exists) throw new VersionConflictError(1);
+          const metaReference = workspaceDoc(workspaceId);
+          const [snapshot, metaSnapshot] = await Promise.all([
+            transaction.get(reference),
+            transaction.get(metaReference),
+          ]);
+          if (snapshot.exists) throw new VersionConflictError(1);
           transaction.create(reference, record);
+          bumpRevision(transaction, metaReference, metaSnapshot);
         });
         return record as StoreRecord<S>;
       } catch (error) {
@@ -116,7 +188,11 @@ export function createFirestoreRepository(db: Firestore): CrmRepository {
       try {
         return await db.runTransaction(async (transaction) => {
           const reference = doc(workspaceId, store, id);
-          const snapshot = await transaction.get(reference);
+          const metaReference = workspaceDoc(workspaceId);
+          const [snapshot, metaSnapshot] = await Promise.all([
+            transaction.get(reference),
+            transaction.get(metaReference),
+          ]);
           if (!snapshot.exists) throw new RecordNotFoundError(id);
           const current = storeSchemas[store].parse(normalizeRecordScope(snapshot.data()!));
           if (current.version !== expectedVersion) throw new VersionConflictError(current.version);
@@ -128,6 +204,7 @@ export function createFirestoreRepository(db: Firestore): CrmRepository {
             version: current.version + 1,
           });
           transaction.set(reference, updated);
+          bumpRevision(transaction, metaReference, metaSnapshot);
           return updated as StoreRecord<S>;
         });
       } catch (error) {
@@ -136,42 +213,27 @@ export function createFirestoreRepository(db: Firestore): CrmRepository {
     },
 
     async transaction(changes: StoreChanges) {
-      const entries = (Object.entries(changes) as [StoreName, Array<Record<string, unknown>>][]).flatMap(
-        ([store, records]) =>
-          records.map((record) => {
-            const parsed = storeSchemas[store].parse(normalizeRecordScope(record));
-            return { store, record: parsed, reference: doc(parsed.workspaceId, store, parsed.id) };
-          }),
-      );
-      if (entries.length > 450) throw new Error('A cloud transaction cannot contain more than 450 records');
-      try {
-        await db.runTransaction(async (transaction) => {
-          const snapshots: DocumentSnapshot[] = [];
-          for (const entry of entries) snapshots.push(await transaction.get(entry.reference));
-          entries.forEach((entry, index) => {
-            const snapshot = snapshots[index]!;
-            const action = validateFirestoreTransition(
-              snapshot.exists ? (snapshot.data() as Record<string, unknown>) : undefined,
-              entry.record,
-            );
-            if (action === 'create') transaction.create(entry.reference, entry.record);
-            if (action === 'update') transaction.set(entry.reference, entry.record);
-          });
-        });
-      } catch (error) {
-        cloudError(error);
-      }
+      await transact(changes);
+    },
+
+    async upsertTransaction(changes: StoreChanges) {
+      await transact(changes);
     },
 
     async delete<S extends StoreName>(store: S, id: string, expectedVersion: number, workspaceId: string) {
       try {
         await db.runTransaction(async (transaction) => {
           const reference = doc(workspaceId, store, id);
-          const snapshot = await transaction.get(reference);
+          const metaReference = workspaceDoc(workspaceId);
+          const [snapshot, metaSnapshot] = await Promise.all([
+            transaction.get(reference),
+            transaction.get(metaReference),
+          ]);
           if (!snapshot.exists) throw new RecordNotFoundError(id);
           const current = storeSchemas[store].parse(normalizeRecordScope(snapshot.data()!));
           if (current.version !== expectedVersion) throw new VersionConflictError(current.version);
           transaction.delete(reference);
+          bumpRevision(transaction, metaReference, metaSnapshot);
         });
       } catch (error) {
         cloudError(error);

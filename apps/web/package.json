@@ -10,27 +10,27 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@dnd-kit/core": "latest",
-    "@dnd-kit/sortable": "latest",
-    "@dnd-kit/utilities": "latest",
-    "@hookform/resolvers": "latest",
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "10.0.0",
+    "@dnd-kit/utilities": "3.2.2",
+    "@hookform/resolvers": "5.4.0",
     "@northwind/api-client": "*",
     "@northwind/domain": "*",
     "@northwind/ui": "*",
-    "@tanstack/react-query": "latest",
-    "lucide-react": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "react-hook-form": "latest",
-    "react-router-dom": "latest",
-    "zod": "latest"
+    "@tanstack/react-query": "5.101.2",
+    "lucide-react": "1.23.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-hook-form": "7.80.0",
+    "react-router-dom": "7.18.1",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.2",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "@vitejs/plugin-react": "latest",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.3",
     "tailwindcss": "^4.3.2",
-    "vite": "latest"
+    "vite": "8.1.3"
   }
 }

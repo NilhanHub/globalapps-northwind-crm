@@ -24,6 +24,9 @@ suite('Firestore repository emulator integration', () => {
     );
     const updated = await repository.update('companies', created.id, { name: 'Acme Two' }, 1, workspaceId);
     expect(updated.version).toBe(2);
+    const revisionBeforeNoop = await repository.getWorkspaceRevision(workspaceId);
+    await repository.upsertTransaction({ companies: [{ ...updated, optionalField: undefined }] });
+    expect(await repository.getWorkspaceRevision(workspaceId)).toEqual(revisionBeforeNoop);
     await expect(repository.update('companies', created.id, { name: 'Stale' }, 1, workspaceId)).rejects.toBeInstanceOf(
       VersionConflictError,
     );

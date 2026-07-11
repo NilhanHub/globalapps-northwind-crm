@@ -51,20 +51,47 @@ async function fixture(options: { now?: () => Date; repositoryUnavailable?: bool
     authService: auth,
     secureCookies: false,
     agentTokenHash: createHash('sha256').update('agent-secret').digest('hex'),
+    agentTokens: [
+      {
+        keyId: 'reporter',
+        tokenHash: createHash('sha256').update('read-secret').digest('hex'),
+        permissions: ['read'],
+      },
+    ],
     publicDir,
+    release: {
+      version: '2.1.0-test',
+      commitSha: 'abc1234',
+      buildTime: '2026-07-11T00:00:00.000Z',
+      repositoryType: 'json',
+    },
   });
-  return { app };
+  return { app, repository };
 }
 
 describe('modular API server', () => {
   it('exposes a public health check and protects bootstrap', async () => {
     const { app } = await fixture();
-    expect((await app.inject({ method: 'GET', url: '/api/health' })).statusCode).toBe(200);
+    const health = await app.inject({ method: 'GET', url: '/api/health' });
+    expect(health.statusCode).toBe(200);
+    expect(health.json()).toMatchObject({
+      status: 'ok',
+      readiness: 'ready',
+      version: '2.1.0-test',
+      commitSha: 'abc1234',
+      repositoryType: 'json',
+    });
+    expect((await app.inject({ method: 'GET', url: '/api/live' })).json()).toMatchObject({
+      status: 'ok',
+      liveness: 'alive',
+    });
+    expect((await app.inject({ method: 'GET', url: '/api/ready' })).json()).toMatchObject({ readiness: 'ready' });
     expect(
       (await app.inject({ method: 'GET', url: '/api/health', headers: { origin: 'https://evil.example' } })).statusCode,
     ).toBe(403);
     expect((await app.inject({ method: 'GET', url: '/api/auth/session' })).json()).toEqual({ authenticated: false });
     expect((await app.inject({ method: 'GET', url: '/api/bootstrap' })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'GET', url: '/api/diagnostics' })).statusCode).toBe(401);
     await app.close();
   });
 
@@ -150,6 +177,9 @@ describe('modular API server', () => {
     });
     expect(createdResponse.statusCode).toBe(201);
     const created = createdResponse.json<{ id: string; version: number }>();
+    const firstRevision = await app.inject({ method: 'GET', url: '/api/workspace/revision', cookies });
+    expect(firstRevision.statusCode).toBe(200);
+    expect(firstRevision.json()).toMatchObject({ workspaceId: 'default', revision: expect.any(String) });
     const changed = await app.inject({
       method: 'PATCH',
       url: `/api/companies/${created.id}`,
@@ -158,6 +188,10 @@ describe('modular API server', () => {
       payload: { status: 'Contacted' },
     });
     expect(changed.statusCode).toBe(200);
+    const nextRevision = await app.inject({ method: 'GET', url: '/api/workspace/revision', cookies });
+    expect(nextRevision.json<{ revision: string }>().revision).not.toBe(
+      firstRevision.json<{ revision: string }>().revision,
+    );
     expect(
       (
         await app.inject({
@@ -172,6 +206,55 @@ describe('modular API server', () => {
     await app.close();
   });
 
+  it('rejects normalized duplicate companies and renames cached company fields transactionally', async () => {
+    const { app } = await fixture();
+    const headers = { authorization: 'Bearer agent-secret' };
+    const company = (
+      await app.inject({ method: 'POST', url: '/api/companies', headers, payload: { name: 'Acme & Sons' } })
+    ).json<{ id: string; version: number }>();
+    const duplicate = await app.inject({
+      method: 'POST',
+      url: '/api/companies',
+      headers,
+      payload: { name: ' ACME and Sons ' },
+    });
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json()).toMatchObject({ error: { code: 'DUPLICATE_IDENTITY', matches: [{ id: company.id }] } });
+    const mutual = (
+      await app.inject({ method: 'POST', url: '/api/people', headers, payload: { name: 'Morgan', type: 'mutual' } })
+    ).json<{ id: string }>();
+    const target = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/people',
+        headers,
+        payload: { name: 'Taylor', type: 'target', companyId: company.id, mutualPersonIds: [mutual.id] },
+      })
+    ).json<{ id: string }>();
+    await app.inject({
+      method: 'POST',
+      url: '/api/routes',
+      headers,
+      payload: { companyId: company.id, targetPersonId: target.id, mutualPersonId: mutual.id },
+    });
+    const renamed = await app.inject({
+      method: 'PATCH',
+      url: `/api/companies/${company.id}`,
+      headers: { ...headers, 'if-match': String(company.version) },
+      payload: { name: 'Acme Global' },
+    });
+    expect(renamed.statusCode).toBe(200);
+    const people = (await app.inject({ method: 'GET', url: '/api/people', headers })).json<
+      Array<{ id: string; companyName: string }>
+    >();
+    const routes = (await app.inject({ method: 'GET', url: '/api/routes', headers })).json<
+      Array<{ companyName: string }>
+    >();
+    expect(people.find((person) => person.id === target.id)?.companyName).toBe('Acme Global');
+    expect(routes[0]?.companyName).toBe('Acme Global');
+    await app.close();
+  });
+
   it('allows scoped desktop agents without browser csrf', async () => {
     const { app } = await fixture();
     const response = await app.inject({
@@ -182,6 +265,20 @@ describe('modular API server', () => {
     });
     expect(response.statusCode).toBe(201);
     expect(response.json()).toMatchObject({ name: 'Agent account', createdBy: 'agent:Atlas' });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/companies',
+          headers: { authorization: 'Bearer read-secret' },
+          payload: { name: 'Forbidden writer' },
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/companies', headers: { authorization: 'Bearer read-secret' } }))
+        .statusCode,
+    ).toBe(200);
     await app.close();
   });
 
@@ -235,9 +332,31 @@ describe('modular API server', () => {
       targetPersonId: target.id,
       mutualPersonId: mutual.id,
       owner: 'Jeremy',
+      notes: 'Imported research note',
     });
     expect(routeResponse.statusCode).toBe(201);
     const route = routeResponse.json<{ id: string }>();
+    expect((await request('POST', `/api/routes/${route.id}/actions`, { action: 'call_mutual' })).statusCode).toBe(400);
+    const call = await request('POST', `/api/routes/${route.id}/actions`, {
+      action: 'call_mutual',
+      interaction: {
+        contactPersonId: mutual.id,
+        channel: 'call',
+        outcome: 'Connected and discussed the target',
+        occurredAt: '2026-07-10T10:00:00.000Z',
+        notes: 'Warm conversation',
+        nextAction: 'Send context',
+        followUpDate: '2026-07-15',
+      },
+    });
+    expect(call.statusCode).toBe(200);
+    expect(call.json()).toMatchObject({
+      activity: {
+        type: 'call',
+        occurredAt: '2026-07-10T10:00:00.000Z',
+        interaction: { contactPersonId: mutual.id, channel: 'call' },
+      },
+    });
     const enrichedPeople = (await request('GET', '/api/people')).json<
       Array<{ id: string; relationshipCount: number; activeRouteCount: number }>
     >();
@@ -252,12 +371,23 @@ describe('modular API server', () => {
     expect(moved.statusCode).toBe(200);
     expect(moved.json()).toMatchObject({
       route: { stage: 'Intro requested' },
-      activity: { type: 'edit', actor: 'northwind' },
+      activity: { type: 'move_stage', actor: 'northwind' },
     });
+    expect(
+      (await request('POST', `/api/routes/${route.id}/actions`, { action: 'move_stage', stage: 'Won' })).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await request('POST', `/api/routes/${route.id}/actions`, {
+          action: 'move_stage',
+          stage: 'Dead / no route',
+        })
+      ).statusCode,
+    ).toBe(400);
     const activityId = moved.json<{ activity: { id: string } }>().activity.id;
     const undone = await request('POST', `/api/routes/${route.id}/actions/${activityId}/undo`, {});
     expect(undone.json()).toMatchObject({ route: { stage: 'Found route' }, activity: { type: 'undo' } });
-    expect((await request('GET', '/api/activities')).json()).toHaveLength(2);
+    expect((await request('GET', '/api/activities')).json()).toHaveLength(3);
     expect((await request('POST', `/api/routes/${route.id}/archive`, { reason: 'Duplicate path' })).statusCode).toBe(
       200,
     );
@@ -272,6 +402,22 @@ describe('modular API server', () => {
     });
     expect(bulk.json()).toMatchObject({
       routes: [{ owner: 'Paul', dueDate: '2026-07-20', nextAction: 'Send context' }],
+    });
+    await request('POST', `/api/routes/${route.id}/actions`, { action: 'move_stage', stage: 'Target contacted' });
+    const reset = await request('POST', '/api/routes/bulk/actions', { routeIds: [route.id], action: 'reset' });
+    expect(reset.json()).toMatchObject({
+      routes: [
+        {
+          owner: 'unassigned',
+          stage: 'Found route',
+          outcome: 'pending',
+          confidence: 'emerging',
+          dueDate: '',
+          nextAction: '',
+          notes: 'Imported research note',
+        },
+      ],
+      activities: [{ type: 'reset' }],
     });
     expect(
       (await request('POST', `/api/people/${target.id}/archive`, { reason: 'Temporary removal' })).statusCode,
@@ -342,6 +488,60 @@ describe('modular API server', () => {
         })
       ).statusCode,
     ).toBe(400);
+    await app.close();
+  });
+
+  it('previews and commits idempotent resumable research imports', async () => {
+    const { app } = await fixture();
+    const headers = { authorization: 'Bearer agent-secret' };
+    const content = `Company: Import Co\nTarget: Taylor Import\nTarget role: CFO\nMutual contact: Morgan Import\nNotes: Historical context only`;
+    const payload = { files: [{ filename: 'Connections at Import Co.eml', content }] };
+    const preview = await app.inject({ method: 'POST', url: '/api/imports/research/preview', headers, payload });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.json()).toMatchObject({ preview: { creates: { companies: 1, people: 2, routes: 1 } } });
+    const imported = await app.inject({ method: 'POST', url: '/api/imports/research', headers, payload });
+    expect(imported.statusCode).toBe(201);
+    expect(imported.json()).toMatchObject({ status: 'completed', summary: { companiesCreated: 1, routesCreated: 1 } });
+    const jobId = imported.json<{ id: string }>().id;
+    expect((await app.inject({ method: 'GET', url: `/api/imports/${jobId}`, headers })).statusCode).toBe(200);
+    const repeated = await app.inject({ method: 'POST', url: '/api/imports/research', headers, payload });
+    expect(repeated.json()).toMatchObject({
+      status: 'completed',
+      summary: { companiesCreated: 0, peopleCreated: 0, peopleUpdated: 0, routesCreated: 0 },
+    });
+    expect((await app.inject({ method: 'GET', url: '/api/routes', headers })).json()).toHaveLength(1);
+    await app.close();
+  });
+
+  it('sends only affected records to coordinated cloud-style transactions', async () => {
+    const { app, repository } = await fixture();
+    const headers = { authorization: 'Bearer agent-secret' };
+    const companies: Array<{ id: string }> = [];
+    for (let index = 0; index < 20; index += 1) {
+      companies.push(
+        (
+          await app.inject({
+            method: 'POST',
+            url: '/api/companies',
+            headers,
+            payload: { name: `Transaction Fixture ${index}` },
+          })
+        ).json<{ id: string }>(),
+      );
+    }
+    const original = repository.upsertTransaction.bind(repository);
+    repository.upsertTransaction = async (changes) => {
+      const count = Object.values(changes).reduce((sum, records) => sum + (records?.length ?? 0), 0);
+      expect(count).toBeLessThanOrEqual(2);
+      await original(changes);
+    };
+    const archived = await app.inject({
+      method: 'POST',
+      url: `/api/companies/${companies[0]!.id}/archive`,
+      headers,
+      payload: { reason: 'Transaction scope test' },
+    });
+    expect(archived.statusCode).toBe(200);
     await app.close();
   });
 

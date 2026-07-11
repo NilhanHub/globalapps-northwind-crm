@@ -101,6 +101,9 @@ test.describe('Visual Regression Suite', () => {
     await expect(page.getByRole('heading', { name: 'Warm introduction process', exact: true })).toBeVisible();
     await expect(page).toHaveScreenshot('process-page.png', { maxDiffPixelRatio: 0.1 });
 
+    await page.goto('/imports');
+    await expect(page.getByRole('heading', { name: 'Import relationship research', exact: true })).toBeVisible();
+
     // Go to Archived Page
     await page.goto('/archived');
     await expect(page.getByRole('heading', { name: 'Archived records', exact: true })).toBeVisible();

@@ -9,6 +9,7 @@ import {
   writeFileSync,
   copyFileSync,
 } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { normalizeRecordScope } from '@northwind/domain';
 import {
@@ -111,6 +112,29 @@ export function createJsonRepository(dataDir: string): CrmRepository & { recover
       read('companies');
     },
 
+    async getWorkspaceRevision(workspaceId: string) {
+      const stores: StoreName[] = ['companies', 'people', 'routes', 'activities'];
+      const records = stores.flatMap((store) => read(store).filter((record) => record.workspaceId === workspaceId));
+      const canonical = JSON.stringify(
+        records
+          .map((record) => ({ id: record.id, version: record.version }))
+          .sort((left, right) => String(left.id).localeCompare(String(right.id))),
+      );
+      const updatedAt =
+        records
+          .map((record) =>
+            String(
+              ('updatedAt' in record && record.updatedAt) ||
+                ('timestamp' in record && record.timestamp) ||
+                ('createdAt' in record && record.createdAt) ||
+                '',
+            ),
+          )
+          .sort()
+          .at(-1) ?? '';
+      return { revision: createHash('sha256').update(canonical).digest('hex').slice(0, 24), updatedAt };
+    },
+
     async list<S extends StoreName>(store: S, workspaceId: string): Promise<StoreRecord<S>[]> {
       return read(store).filter((record) => record.workspaceId === workspaceId);
     },
@@ -160,6 +184,23 @@ export function createJsonRepository(dataDir: string): CrmRepository & { recover
 
     transaction(changes: Partial<Record<StoreName, unknown[]>>): Promise<void> {
       return serialize(() => writeMany(changes));
+    },
+
+    upsertTransaction(changes: Partial<Record<StoreName, unknown[]>>): Promise<void> {
+      return serialize(() => {
+        const merged: Partial<Record<StoreName, unknown[]>> = {};
+        for (const [storeName, incoming] of Object.entries(changes)) {
+          const store = storeName as StoreName;
+          const records = read(store) as Array<Record<string, unknown>>;
+          const byId = new Map(records.map((record) => [`${String(record.workspaceId)}:${String(record.id)}`, record]));
+          for (const candidate of incoming ?? []) {
+            const record = candidate as Record<string, unknown>;
+            byId.set(`${String(record.workspaceId)}:${String(record.id)}`, record);
+          }
+          merged[store] = [...byId.values()];
+        }
+        writeMany(merged);
+      });
     },
 
     delete<S extends StoreName>(store: S, id: string, expectedVersion: number, workspaceId: string): Promise<void> {

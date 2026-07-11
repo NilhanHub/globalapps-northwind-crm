@@ -17,7 +17,7 @@ Every record is scoped by `workspaceId`. Missing values normalize to `default`, 
 
 ## Local setup
 
-Requires Node.js 20 or newer.
+Requires Node.js 22. The exact major version is recorded in `.node-version` and enforced by `package.json`.
 
 ```powershell
 npm ci
@@ -45,6 +45,13 @@ npm run test:e2e     Playwright smoke journeys
 npm run data:migrate idempotently copy and validate root stores into data/
 npm run data:migrate:firestore dry-run the JSON-to-Firestore migration
 npm run data:migrate:firestore:apply apply and verify the cloud migration
+npm run doctor       sanitized runtime, environment and port readiness report
+npm run verify       format, lint, typecheck and automated tests
+npm run verify:release verify plus emulator, build and Playwright journeys
+npm run data:integrity read-only repository relationship and duplicate audit
+npm run data:export:firestore timestamped Firestore export with IDs and hashes
+npm run data:verify-export validate an export's schema, hashes and relationships
+npm run ops:footprint report deploy files, bytes, caches and threshold usage
 ```
 
 ## Security model
@@ -58,5 +65,7 @@ Current cloud provisioning and cutover status is recorded in [docs/CLOUD_STATUS.
 ## Data safety
 
 Migration never deletes the four root stores. Firestore writes are transactional, records carry optimistic versions and stale writes return `409`. Daily and weekly managed backups are complemented by nightly private GCS exports. JSON remains the schema-validated local adapter. Archive is distinct from Won/Dead and is reversible by operation ID.
+
+Normal releases never compare production to the obsolete root JSON seed. Use `data:integrity`, `data:export:firestore` and `data:verify-export` against current Firestore state. Research intake is dry-run first, provenance-aware, resumable and idempotent through `/imports`.
 
 This repository is private and unlicensed. See [UNLICENSED](UNLICENSED).
