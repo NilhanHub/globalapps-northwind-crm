@@ -3,7 +3,6 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
   outputDir: './test-results',
-  snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}-{projectName}{ext}',
   workers: 1,
   fullyParallel: false,
   reporter: [['list'], ['html', { open: 'never' }]],
