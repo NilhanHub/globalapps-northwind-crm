@@ -457,7 +457,7 @@ a {
   font-family: var(--nw-font-display);
 }
 .attention-list article div span {
-  color: #747e84;
+  color: #59636a;
   font-size: 0.73rem;
 }
 .attention-list button {
@@ -500,7 +500,7 @@ a {
 }
 .next-action-grid p {
   margin: 0;
-  color: #727c83;
+  color: #59636a;
   font-size: 0.72rem;
 }
 .inline-date input {

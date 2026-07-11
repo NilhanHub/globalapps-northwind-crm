@@ -56,8 +56,8 @@ npm run data:migrate:query-keys idempotently fill normalized Firestore paging/se
 npm run ops:footprint report deploy files, bytes, caches and threshold usage
 npm run backup:hostinger:run create and retain a validated encrypted backup
 npm run backup:hostinger:status report backup count, age and filenames
-npm run backup:generate-trigger create a private 256-bit trigger file and print only its hash
-npm run backup:generate-keys create the one-time RSA-4096 recovery key pair
+npm run backup:generate-trigger create a private 256-bit trigger at an explicit absolute path outside the repository and print only its hash
+npm run backup:generate-keys create the one-time RSA-4096 recovery key pair at an explicit absolute directory outside the repository
 npm run backup:verify validate an encrypted backup envelope and checksum
 npm run backup:decrypt decrypt a backup with a temporarily supplied private key
 npm run backup:restore:validate validate IDs, hashes and relationships after decryption

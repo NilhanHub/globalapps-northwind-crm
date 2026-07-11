@@ -57,15 +57,20 @@ The approved staging project ID is `globalapps-northwind-staging`. With the stag
 
 Use hPanel's **Access all files of your web hosting** view to create separate staging and production directories above all public and Node deployment directories. Set each directory to owner-only `0700`; never point both applications at the same directory. Configure `CRM_HOSTINGER_BACKUP_DIR`, `CRM_BACKUP_PUBLIC_KEY_BASE64` and `CRM_BACKUP_TRIGGER_HASH` in the corresponding application environment.
 
-Generate the RSA-4096 recovery pair with `npm run backup:generate-keys -- <ignored-local-directory>`. Generate a 256-bit trigger token with `npm run backup:generate-trigger -- <absolute-private-token-file>`. The trigger command writes the token with `0600`, refuses to overwrite an existing file and prints only its SHA-256 hash. Put that hash in `CRM_BACKUP_TRIGGER_HASH`. Store the plaintext trigger file outside every website and deployment; it must never appear in Git, environment settings or cron output.
+Generate the RSA-4096 recovery pair with `npm run backup:generate-keys -- <absolute-directory-outside-the-repository>`. Generate a 256-bit trigger token with `npm run backup:generate-trigger -- <absolute-private-token-file-outside-the-repository>`. Both commands reject missing, relative, repository and `Evidence` paths; neither has a fallback output location. The trigger command writes the token with `0600`, refuses to overwrite an existing file and prints only its SHA-256 hash. Put that hash in `CRM_BACKUP_TRIGGER_HASH`. Store the plaintext trigger file outside every website and deployment; it must never appear in Git, environment settings or cron output.
 
-In hPanel create a **Custom** cron scheduled as `15 2 * * *` (02:15 UTC). After replacing the two reviewed absolute paths, use:
+The repository contains `scripts/hostinger-backup-cron.sh`, a POSIX wrapper with fixed staging and production mappings. It accepts only `staging` or `production`, derives the Node application and token paths from Hostinger's `$HOME`, and never contains or prints the trigger token. The verified application roots are `$HOME/domains/crm-staging.globalapps.world/nodejs` and `$HOME/domains/crm.globalapps.world/nodejs`; do not edit the wrapper to accept a path from cron input.
+
+The environment-specific private trees are `$HOME/northwind-crm-private/staging` and `$HOME/northwind-crm-private/production`, each with owner-only `archives`, `secrets` and `cron` directories at mode `0700`. Copy the reviewed wrapper to each environment's `cron/hostinger-backup-cron.sh`. Place that environment's token at `secrets/backup-trigger.token` with mode `0600`. The wrapper rejects a missing token file and a token-file symlink.
+
+In hPanel create separate **Custom** cron entries scheduled as `15 2 * * *` (02:15 UTC). Use these token-free commands:
 
 ```sh
-cd <absolute-node-app-root> && CRM_BACKUP_URL=https://crm-staging.globalapps.world CRM_BACKUP_TRIGGER_TOKEN_FILE=<absolute-staging-token-file> npm run backup:hostinger:run
+/bin/sh "$HOME/northwind-crm-private/staging/cron/hostinger-backup-cron.sh" staging
+/bin/sh "$HOME/northwind-crm-private/production/cron/hostinger-backup-cron.sh" production
 ```
 
-Production uses the same command with `https://crm.globalapps.world` and its own token file. The runner is plain Node.js and continues working after `npm prune --omit=dev`. It requires HTTPS outside loopback, reads a strong token only from an absolute file path, stops the HTTP request after 11 minutes and never prints the token.
+Each command selects its own fixed HTTPS URL, application root and private token file. The runner is plain Node.js and continues working after `npm prune --omit=dev`. It requires HTTPS outside loopback, reads a strong token only from an absolute file path, stops the HTTP request after 11 minutes and never prints the token.
 
 The endpoint allows two attempts per hour and uses an exclusive run lock. A malformed crash lock becomes recoverable after 20 minutes. The whole backup has a ten-minute publication deadline. The service compares the workspace revision before and after reading all seven stores, retries once if live data changed and refuses to publish a skewed snapshot after a second change. A successful archive is written to a temporary name, checksum-verified, atomically renamed and only then pruned to the newest two successful copies. Failed attempts do not remove valid archives.
 
