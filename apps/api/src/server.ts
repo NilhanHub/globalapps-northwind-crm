@@ -38,6 +38,12 @@ import { registerReminderRoutes } from './routes/reminders.js';
 
 const SESSION_COOKIE = 'northwind_session';
 const CSRF_COOKIE = 'northwind_csrf';
+export const FASTIFY_LOG_REDACT_PATHS = [
+  'req.headers.authorization',
+  'req.headers.cookie',
+  'req.headers.x-backup-token',
+  'res.headers.set-cookie',
+] as const;
 const publicPaths = new Set([
   '/api/health',
   '/api/live',
@@ -77,7 +83,7 @@ export async function createApp(options: AppOptions) {
     logger: options.logRequests
       ? {
           level: process.env.CRM_LOG_LEVEL || 'info',
-          redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie'],
+          redact: [...FASTIFY_LOG_REDACT_PATHS],
         }
       : false,
     bodyLimit: 100 * 1024,
