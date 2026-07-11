@@ -15,7 +15,7 @@ export function PageHeader(props: {
         <p>{props.description}</p>
       </div>
       {props.metrics ? (
-        <dl className="page-metrics">
+        <dl className="page-metrics" tabIndex={0} aria-label={`${props.title} metrics`}>
           {props.metrics.map((metric) => (
             <div key={metric.label}>
               <dt>{metric.label}</dt>

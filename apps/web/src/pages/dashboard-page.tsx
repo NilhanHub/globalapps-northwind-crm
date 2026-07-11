@@ -184,7 +184,7 @@ export function DashboardPage({
                     />
                   </label>
                   <h3 className="m-0 text-sm font-display font-semibold text-ink leading-tight">{route.nextAction}</h3>
-                  <p className="text-xs text-ink-soft/70">
+                  <p className="text-xs text-ink-soft">
                     {route.companyName} · {peopleById.get(route.targetPersonId)?.name}
                   </p>
                   <div className="inline-actions flex justify-between gap-2 mt-2">
