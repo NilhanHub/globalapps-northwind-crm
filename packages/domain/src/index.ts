@@ -5,7 +5,15 @@ export * from './integrity.js';
 
 export const WORKSPACE_DEFAULT = 'default';
 
-export const ownerSchema = z.enum(['Paul', 'Jeremy', 'Nilhan', 'other', 'unassigned']);
+export const OWNER_IDS = {
+  paul: 'owner-paul',
+  jeremy: 'owner-jeremy',
+  nilhan: 'owner-nilhan',
+  other: 'owner-other',
+  unassigned: 'owner-unassigned',
+} as const;
+
+export const ownerSchema = z.string().trim().min(1).max(80);
 export const routeStageSchema = z.enum([
   'Found route',
   'Mutual friend to contact',
@@ -109,6 +117,7 @@ export const routeSchema = z
     targetPersonId: z.string().min(1),
     mutualPersonId: z.string().min(1),
     owner: ownerSchema,
+    ownerId: z.string().min(1).optional(),
     stage: routeStageSchema,
     confidence: confidenceSchema,
     nextAction: z.string().default(''),
@@ -116,6 +125,8 @@ export const routeSchema = z
     outcome: outcomeSchema,
     notes: z.string().default(''),
     researchNotes: z.string().optional(),
+    reminderSnoozedUntil: z.string().datetime().optional(),
+    reminderSnoozeReason: z.string().max(500).optional(),
     sourceIdentityKey: z.string().optional(),
     sourceReferences: z.array(sourceReferenceSchema).optional(),
     createdAt: z.string().min(1),
@@ -126,7 +137,33 @@ export const routeSchema = z
     archiveOperationId: z.string().optional(),
     ...scopedFields,
   })
-  .passthrough();
+  .passthrough()
+  .transform((route) => ({
+    ...route,
+    ownerId: route.ownerId ?? ownerIdForLegacyName(route.owner) ?? OWNER_IDS.unassigned,
+  }));
+
+export const ownerProfileSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().trim().min(1).max(80),
+  normalizedName: z.string().min(1),
+  active: z.boolean().default(true),
+  system: z.boolean().default(false),
+  sortOrder: z.number().int().nonnegative().default(0),
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+  ...scopedFields,
+});
+
+export const workspaceSettingsSchema = z.object({
+  id: z.literal('settings'),
+  timezone: z.literal('Europe/London').default('Europe/London'),
+  staleAfterDays: z.number().int().min(1).max(90).default(7),
+  awaitingReplyAfterDays: z.number().int().min(1).max(30).default(3),
+  reminderSnoozeMaxDays: z.number().int().min(1).max(30).default(30),
+  updatedAt: z.string().min(1),
+  ...scopedFields,
+});
 
 export const activitySchema = z
   .object({
@@ -176,8 +213,119 @@ export type Person = z.infer<typeof personSchema>;
 export type Route = z.infer<typeof routeSchema>;
 export type Activity = z.infer<typeof activitySchema>;
 export type ImportJob = z.infer<typeof importJobSchema>;
+export type OwnerProfile = z.infer<typeof ownerProfileSchema>;
+export type WorkspaceSettings = z.infer<typeof workspaceSettingsSchema>;
 export type RouteOwner = z.infer<typeof ownerSchema>;
 export type RouteStage = z.infer<typeof routeStageSchema>;
+
+export type ReminderCategory = 'overdue' | 'due_today' | 'awaiting_response' | 'stale' | 'setup_incomplete';
+export type RouteReminder = { routeId: string; category: ReminderCategory; occurredAt: string; summary: string };
+
+export function defaultOwnerProfiles(now: string, workspaceId = WORKSPACE_DEFAULT): OwnerProfile[] {
+  const entries: Array<[string, string, boolean]> = [
+    [OWNER_IDS.paul, 'Paul', false],
+    [OWNER_IDS.jeremy, 'Jeremy', false],
+    [OWNER_IDS.nilhan, 'Nilhan', false],
+    [OWNER_IDS.other, 'Other', true],
+    [OWNER_IDS.unassigned, 'Unassigned', true],
+  ];
+  return entries.map(([id, displayName, system], sortOrder) =>
+    ownerProfileSchema.parse({
+      id,
+      displayName,
+      normalizedName: normalizeIdentity(displayName),
+      active: true,
+      system,
+      sortOrder,
+      createdAt: now,
+      updatedAt: now,
+      workspaceId,
+    }),
+  );
+}
+
+export function ownerIdForLegacyName(value: string) {
+  const normalized = normalizeIdentity(value || 'unassigned');
+  const match = defaultOwnerProfiles('1970-01-01T00:00:00.000Z').find((owner) => owner.normalizedName === normalized);
+  return match?.id;
+}
+
+function dateInTimezone(value: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(value);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+export function deriveRouteReminders(input: {
+  routes: Route[];
+  activities: Activity[];
+  now?: Date;
+  settings?: Partial<WorkspaceSettings>;
+}): RouteReminder[] {
+  const now = input.now ?? new Date();
+  const timezone = input.settings?.timezone ?? 'Europe/London';
+  const today = dateInTimezone(now, timezone);
+  const staleMs = (input.settings?.staleAfterDays ?? 7) * 86_400_000;
+  const awaitingMs = (input.settings?.awaitingReplyAfterDays ?? 3) * 86_400_000;
+  const latestByRoute = new Map<string, string>();
+  for (const activity of input.activities) {
+    if (!activity.routeId) continue;
+    const current = latestByRoute.get(activity.routeId) ?? '';
+    if (activity.timestamp > current) latestByRoute.set(activity.routeId, activity.timestamp);
+  }
+  const reminders: RouteReminder[] = [];
+  for (const route of input.routes) {
+    if (route.archivedAt || route.outcome !== 'pending' || ['Won', 'Dead / no route'].includes(route.stage)) continue;
+    if (route.reminderSnoozedUntil && Date.parse(route.reminderSnoozedUntil) > now.getTime()) continue;
+    const last = latestByRoute.get(route.id) || route.updatedAt || route.createdAt;
+    const age = Math.max(0, now.getTime() - Date.parse(last));
+    if (route.dueDate && route.dueDate < today)
+      reminders.push({
+        routeId: route.id,
+        category: 'overdue',
+        occurredAt: route.dueDate,
+        summary: 'Follow-up is overdue',
+      });
+    else if (route.dueDate === today)
+      reminders.push({
+        routeId: route.id,
+        category: 'due_today',
+        occurredAt: route.dueDate,
+        summary: 'Follow-up is due today',
+      });
+    if (route.ownerId === OWNER_IDS.unassigned || route.owner === 'unassigned' || !route.dueDate || !route.nextAction)
+      reminders.push({
+        routeId: route.id,
+        category: 'setup_incomplete',
+        occurredAt: route.createdAt,
+        summary: 'Owner, due date or next action is missing',
+      });
+    if (['Intro requested', 'Target contacted'].includes(route.stage) && age >= awaitingMs)
+      reminders.push({
+        routeId: route.id,
+        category: 'awaiting_response',
+        occurredAt: last,
+        summary: 'A response is still pending',
+      });
+    if (age >= staleMs)
+      reminders.push({
+        routeId: route.id,
+        category: 'stale',
+        occurredAt: last,
+        summary: 'No activity has been recorded recently',
+      });
+  }
+  const priority: ReminderCategory[] = ['overdue', 'due_today', 'awaiting_response', 'stale', 'setup_incomplete'];
+  return reminders.sort(
+    (left, right) =>
+      priority.indexOf(left.category) - priority.indexOf(right.category) || left.routeId.localeCompare(right.routeId),
+  );
+}
 
 export type RequestContext = {
   actor: string;
@@ -341,6 +489,7 @@ export function prepareRoute(
     targetPersonId: target.id,
     mutualPersonId: mutual.id,
     owner: input.owner ?? 'unassigned',
+    ownerId: input.ownerId ?? ownerIdForLegacyName(String(input.owner ?? 'unassigned')) ?? OWNER_IDS.unassigned,
     stage: input.stage ?? 'Found route',
     confidence: input.confidence ?? 'emerging',
     nextAction: String(input.nextAction ?? ''),

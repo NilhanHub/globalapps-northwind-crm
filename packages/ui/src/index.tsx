@@ -6,6 +6,7 @@ import type {
   TextareaHTMLAttributes,
   SelectHTMLAttributes,
 } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X, Search } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -46,7 +47,10 @@ export function Button({ className = '', variant = 'primary', ...props }: Button
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost';
 }
-export function IconButton({ className = '', variant = 'secondary', ...props }: IconButtonProps) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { className = '', variant = 'secondary', ...props },
+  ref,
+) {
   const variantClasses = {
     primary: 'bg-burgundy text-white hover:bg-burgundy-deep',
     secondary: 'bg-paper text-ink border border-line hover:bg-porcelain',
@@ -55,6 +59,7 @@ export function IconButton({ className = '', variant = 'secondary', ...props }: 
 
   return (
     <button
+      ref={ref}
       className={cn(
         'nw-icon-button inline-flex items-center justify-center w-9 h-9 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper/45 cursor-pointer',
         variantClasses[variant],
@@ -63,7 +68,7 @@ export function IconButton({ className = '', variant = 'secondary', ...props }: 
       {...props}
     />
   );
-}
+});
 
 // 3. Input component
 export type InputProps = InputHTMLAttributes<HTMLInputElement>;
@@ -212,11 +217,29 @@ export function Dialog(props: {
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const opener = useRef<HTMLElement | null>(null);
+  if (props.open && !opener.current && typeof document !== 'undefined')
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  useEffect(
+    () => () => {
+      if (opener.current?.isConnected) opener.current.focus();
+    },
+    [],
+  );
   return (
     <DialogPrimitive.Root open={props.open} onOpenChange={props.onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="nw-dialog__overlay fixed inset-0 z-80 bg-ink/50 backdrop-blur-sm transition-all duration-150" />
-        <DialogPrimitive.Content className="nw-dialog__content fixed z-81 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 grid grid-rows-[auto_minmax(0,1fr)_auto] w-[min(720px,calc(100vw-32px))] max-h-[min(820px,calc(100dvh-32px))] overflow-hidden border border-line rounded-lg bg-paper shadow-lg focus:outline-none">
+        <DialogPrimitive.Content
+          className="nw-dialog__content fixed z-81 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 grid grid-rows-[auto_minmax(0,1fr)_auto] w-[min(720px,calc(100vw-32px))] max-h-[min(820px,calc(100dvh-32px))] overflow-hidden border border-line rounded-lg bg-paper shadow-lg focus:outline-none"
+          onCloseAutoFocus={(event) => {
+            if (opener.current?.isConnected) {
+              event.preventDefault();
+              opener.current.focus();
+            }
+            opener.current = null;
+          }}
+        >
           <header className="nw-dialog__header flex items-center justify-between gap-4 px-6 py-5 border-b border-line">
             <div>
               <DialogPrimitive.Title className="nw-dialog__title m-0 text-ink font-display font-semibold text-2xl leading-tight">

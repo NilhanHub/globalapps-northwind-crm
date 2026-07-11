@@ -10,6 +10,8 @@ test('Hostinger builds once behind an explicit install flag before starting the 
   assert.equal(packageJson.scripts.postinstall, 'node scripts/conditional-postinstall.mjs');
   assert.match(conditionalBuild, /CRM_BUILD_ON_INSTALL/);
   assert.match(conditionalBuild, /npm['"], \[['"]run['"], ['"]build['"]\]/);
+  assert.match(conditionalBuild, /verify:artifacts/);
+  assert.equal(packageJson.scripts['verify:artifacts'], 'node scripts/verify-build-artifacts.mjs');
   assert.equal(packageJson.scripts.start, 'npm run start -w @northwind/api');
   assert.match(hostingerEntry, /import\(['"]\.\/apps\/api\/dist\/index\.js['"]\)/);
 });

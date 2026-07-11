@@ -12,7 +12,11 @@ Quarterly recovery drills restore a verified export or managed backup into a sep
 
 Mutations are serialized. Multi-store changes write temporary files and a recovery journal before renames. On startup the JSON adapter recovers an incomplete journal. Before replacement, timestamped store backups are rotated under the data directory.
 
-Production protection consists of 14 daily managed backups, 14 weekly managed backups, seven-day Firestore point-in-time recovery and nightly native exports retained for 90 days in a private Singapore GCS bucket.
+Production protection consists of 14 daily managed backups, 14 weekly managed backups, seven-day Firestore point-in-time recovery, nightly native exports retained for 90 days in a private Singapore GCS bucket and the newest two successful encrypted archives on Hostinger.
+
+Hostinger archives contain canonical companies, people, routes, activities, import jobs, owner profiles and workspace settings plus IDs, counts, hashes and the integrity report. Sessions, cookies, trigger tokens and plaintext secrets are excluded. Each gzip bundle uses a fresh AES-256-GCM key; the AES key is wrapped with the recovery RSA-4096 public key using OAEP-SHA256.
+
+For a Hostinger archive drill, supply the private key from the password manager only for the duration of `npm run backup:decrypt` or `npm run backup:restore:validate`. Restore into a temporary Firestore database, compare IDs/counts/hashes/relationships, run an isolated read-only API and browser check, save sanitized evidence, and remove the temporary key material. Production is never the first restore target.
 
 Cloud recovery procedure:
 

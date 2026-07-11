@@ -25,7 +25,7 @@ import {
   Toolbar,
   Dialog,
 } from '@northwind/ui';
-import type { Company, Person, Route as RelationshipRoute, RouteOwner, RouteStage } from '@northwind/domain';
+import type { Company, OwnerProfile, Person, Route as RelationshipRoute, RouteStage } from '@northwind/domain';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/page-header';
 import { api } from '../api';
@@ -41,7 +41,6 @@ const stages: RouteStage[] = [
   'Won',
   'Dead / no route',
 ];
-const owners: RouteOwner[] = ['Paul', 'Jeremy', 'Nilhan', 'other', 'unassigned'];
 
 function RouteCard({
   route,
@@ -176,7 +175,7 @@ function RouteCard({
         <strong>{mutual?.name || 'Unknown mutual'}</strong>
       </div>
       <footer>
-        <Badge tone={route.owner === 'unassigned' ? 'neutral' : 'sage'}>{route.owner}</Badge>
+        <Badge tone={route.ownerId === 'owner-unassigned' ? 'neutral' : 'sage'}>{route.owner}</Badge>
         <span>{route.nextAction || 'Next action not set'}</span>
       </footer>
     </article>
@@ -298,7 +297,7 @@ function RouteClusterCard({
         </div>
       )}
       <footer>
-        <Badge tone={lead.owner === 'unassigned' ? 'neutral' : 'sage'}>{lead.owner}</Badge>
+        <Badge tone={lead.ownerId === 'owner-unassigned' ? 'neutral' : 'sage'}>{lead.owner}</Badge>
         <span>{lead.nextAction || 'Next action not set'}</span>
       </footer>
     </article>
@@ -309,14 +308,24 @@ export function RoutesPage({
   companies,
   people,
   routes,
+  owners = [],
   onCreate,
   onRefresh,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  metrics,
 }: {
   companies: Company[];
   people: Person[];
   routes: RelationshipRoute[];
+  owners?: OwnerProfile[];
   onCreate?: () => void;
   onRefresh?: () => Promise<unknown>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
+  metrics?: { active: number; unassigned: number };
 }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState(() => {
@@ -328,7 +337,8 @@ export function RoutesPage({
   });
   const [owner, setOwner] = useState(() => {
     try {
-      return localStorage.getItem('northwind:routes-owner') ?? 'all';
+      const stored = localStorage.getItem('northwind:routes-owner') ?? 'all';
+      return owners.find((candidate) => candidate.displayName === stored)?.id ?? stored;
     } catch {
       return 'all';
     }
@@ -341,7 +351,7 @@ export function RoutesPage({
     }
   });
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulkOwner, setBulkOwner] = useState<RouteOwner>('unassigned');
+  const [bulkOwner, setBulkOwner] = useState('owner-unassigned');
   const [bulkDate, setBulkDate] = useState('');
   const [bulkAction, setBulkAction] = useState('');
   const [status, setStatus] = useState('');
@@ -383,9 +393,9 @@ export function RoutesPage({
   const visible = localRoutes.filter(
     (route) =>
       !route.archivedAt &&
-      (owner === 'all' || route.owner === owner) &&
+      (owner === 'all' || route.ownerId === owner) &&
       (savedView === 'all' ||
-        (savedView === 'unassigned' && route.owner === 'unassigned') ||
+        (savedView === 'unassigned' && route.ownerId === 'owner-unassigned') ||
         (savedView === 'overdue' &&
           Boolean(route.dueDate) &&
           route.dueDate < new Date().toISOString().slice(0, 10) &&
@@ -417,7 +427,7 @@ export function RoutesPage({
     (route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage),
   );
   const incompleteRoutes = activeRoutes.filter(
-    (route) => route.owner === 'unassigned' || !route.dueDate || !route.nextAction,
+    (route) => route.ownerId === 'owner-unassigned' || !route.dueDate || !route.nextAction,
   );
   const setupPercent = activeRoutes.length
     ? Math.round(((activeRoutes.length - incompleteRoutes.length) / activeRoutes.length) * 100)
@@ -473,7 +483,7 @@ export function RoutesPage({
     try {
       await api.request('/api/routes/bulk/actions', {
         method: 'POST',
-        body: { routeIds: [...selected], owner: bulkOwner, dueDate: bulkDate, nextAction: bulkAction },
+        body: { routeIds: [...selected], ownerId: bulkOwner, dueDate: bulkDate, nextAction: bulkAction },
       });
       setStatus(`${selected.size} routes updated.`);
       setSelected(new Set());
@@ -516,12 +526,16 @@ export function RoutesPage({
         metrics={[
           {
             label: 'Active',
-            value: localRoutes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage))
-              .length,
+            value:
+              metrics?.active ??
+              localRoutes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage))
+                .length,
           },
           {
             label: 'Unassigned',
-            value: localRoutes.filter((route) => !route.archivedAt && route.owner === 'unassigned').length,
+            value:
+              metrics?.unassigned ??
+              localRoutes.filter((route) => !route.archivedAt && route.ownerId === 'owner-unassigned').length,
           },
           { label: 'Companies', value: companies.filter((company) => !company.archivedAt).length },
         ]}
@@ -600,11 +614,13 @@ export function RoutesPage({
             className="w-40 h-9 py-0.5"
           >
             <option value="all">All owners</option>
-            {owners.map((item) => (
-              <option key={item} value={item}>
-                {item === 'other' ? 'Other' : item === 'unassigned' ? 'Unassigned' : item}
-              </option>
-            ))}
+            {owners
+              .filter((item) => item.active)
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.displayName}
+                </option>
+              ))}
           </Select>
         </div>
       </Toolbar>
@@ -620,12 +636,16 @@ export function RoutesPage({
               Owner
               <Select
                 value={bulkOwner}
-                onChange={(event) => setBulkOwner(event.target.value as RouteOwner)}
+                onChange={(event) => setBulkOwner(event.target.value)}
                 className="h-8 py-0.5 mt-1"
               >
-                {owners.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
+                {owners
+                  .filter((item) => item.active)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.displayName}
+                    </option>
+                  ))}
               </Select>
             </label>
             <label className="text-xs font-semibold text-ink-soft">
@@ -736,6 +756,13 @@ export function RoutesPage({
           ) : null}
         </DragOverlay>
       </DndContext>
+      {hasMore ? (
+        <div className="page-load-more">
+          <Button variant="secondary" disabled={loadingMore} onClick={onLoadMore}>
+            {loadingMore ? 'Loading…' : 'Load more routes'}
+          </Button>
+        </div>
+      ) : null}
       <Dialog
         open={resetConfirmation}
         onOpenChange={setResetConfirmation}

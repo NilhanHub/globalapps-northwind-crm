@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,12 +10,17 @@ vi.mock('./auth', () => ({ useAuth: () => ({ session: { actor: 'QA' }, logout: v
 
 describe('premium application shell', () => {
   it('provides landmark navigation to every primary workspace', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     render(
-      <MemoryRouter>
-        <AppShell>
-          <div>Workspace content</div>
-        </AppShell>
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <AppShell>
+            <div>Workspace content</div>
+          </AppShell>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     const navigation = screen.getByRole('navigation', { name: 'Primary navigation' });
     expect(navigation).toBeVisible();

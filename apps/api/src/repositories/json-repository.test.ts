@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { companySchema } from '@northwind/domain';
 import { VersionConflictError, createJsonRepository } from './json-repository.js';
 
 const dirs: string[] = [];
@@ -60,5 +61,32 @@ describe('JSON repository', () => {
     );
     expect(await repo.list('activities', 'default')).toHaveLength(12);
     expect(JSON.parse(readFileSync(join(dir, 'activities.json'), 'utf8')).length).toBe(12);
+  });
+
+  it('returns stable cursor pages without gaps or duplicates', async () => {
+    const repo = createJsonRepository(makeDir());
+    const records = Array.from({ length: 105 }, (_, index) =>
+      companySchema.parse({
+        id: `company-${String(index).padStart(3, '0')}`,
+        name: `Fixture ${String(index % 11).padStart(2, '0')}`,
+        normalizedName: `fixture ${String(index % 11).padStart(2, '0')}`,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    await repo.upsertTransaction({ companies: records });
+    const collected: string[] = [];
+    let startAfter: [unknown, string] | undefined;
+    do {
+      const page = await repo.page('companies', 'default', {
+        limit: 50,
+        orderBy: 'normalizedName',
+        direction: 'asc',
+        ...(startAfter ? { startAfter } : {}),
+      });
+      collected.push(...page.items.map((item) => item.id));
+      startAfter = page.nextAnchor ?? undefined;
+    } while (startAfter);
+    expect(collected).toHaveLength(105);
+    expect(new Set(collected)).toHaveLength(105);
   });
 });

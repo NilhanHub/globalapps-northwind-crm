@@ -3,6 +3,7 @@ import {
   auditWorkspaceData,
   canonicalize,
   companySchema,
+  deriveRouteReminders,
   normalizeIdentity,
   normalizeLinkedIn,
   normalizeRecordScope,
@@ -90,5 +91,75 @@ describe('data integrity and identity utilities', () => {
         'BROKEN_ROUTE_TARGET',
       ]),
     );
+  });
+});
+
+describe('shared reminders', () => {
+  it('derives overdue, setup, awaiting-response and stale reminders in Europe/London', () => {
+    const now = new Date('2026-07-11T12:00:00.000Z');
+    const route = routeSchema.parse({
+      id: 'route-reminder',
+      companyId: 'company-1',
+      targetPersonId: 'target-1',
+      mutualPersonId: 'mutual-1',
+      owner: 'unassigned',
+      stage: 'Intro requested',
+      confidence: 'emerging',
+      outcome: 'pending',
+      dueDate: '2026-07-01',
+      nextAction: '',
+      notes: '',
+      createdAt: '2026-06-01T00:00:00.000Z',
+      updatedAt: '2026-06-01T00:00:00.000Z',
+    });
+    expect(deriveRouteReminders({ routes: [route], activities: [], now }).map((item) => item.category)).toEqual([
+      'overdue',
+      'awaiting_response',
+      'stale',
+      'setup_incomplete',
+    ]);
+  });
+
+  it('hides terminal, archived and actively snoozed routes', () => {
+    const base = routeSchema.parse({
+      id: 'route-hidden',
+      companyId: 'company-1',
+      targetPersonId: 'target-1',
+      mutualPersonId: 'mutual-1',
+      owner: 'Paul',
+      stage: 'Found route',
+      confidence: 'emerging',
+      outcome: 'pending',
+      dueDate: '2020-01-01',
+      nextAction: 'Follow up',
+      notes: '',
+      createdAt: '2020-01-01T00:00:00.000Z',
+      reminderSnoozedUntil: '2026-07-12T12:00:00.000Z',
+    });
+    expect(deriveRouteReminders({ routes: [base], activities: [], now: new Date('2026-07-11T12:00:00Z') })).toEqual([]);
+  });
+
+  it('uses the London calendar date across the daylight-saving boundary', () => {
+    const route = routeSchema.parse({
+      id: 'route-bst',
+      companyId: 'company-1',
+      targetPersonId: 'target-1',
+      mutualPersonId: 'mutual-1',
+      owner: 'Paul',
+      stage: 'Found route',
+      confidence: 'emerging',
+      outcome: 'pending',
+      dueDate: '2026-03-30',
+      nextAction: 'Follow up',
+      notes: '',
+      createdAt: '2026-03-29T22:00:00.000Z',
+    });
+    const categories = deriveRouteReminders({
+      routes: [route],
+      activities: [],
+      now: new Date('2026-03-29T23:30:00.000Z'),
+    }).map((item) => item.category);
+    expect(categories).toContain('due_today');
+    expect(categories).not.toContain('overdue');
   });
 });

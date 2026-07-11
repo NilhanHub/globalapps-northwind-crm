@@ -20,6 +20,33 @@ test('shared login opens every primary workspace without console errors', async 
   expect(errors).toEqual([]);
 });
 
+test('owner settings and the shared reminder centre are keyboard-safe', async ({ page, isMobile }) => {
+  test.skip(Boolean(isMobile), 'Desktop command bar workflow is covered once');
+  await page.goto('/login');
+  await page.getByLabel('Username').fill('northwind-e2e');
+  await page.getByLabel('Password').fill('northwind-e2e-passphrase');
+  await page.getByRole('button', { name: 'Open Northwind' }).click();
+
+  const settingsButton = page.getByRole('button', { name: 'Workspace settings' });
+  await settingsButton.click();
+  const settings = page.getByRole('dialog', { name: 'Workspace settings' });
+  await expect(settings.getByText('Europe/London timezone')).toBeVisible();
+  await settings.getByLabel('New owner name').fill('E2E Owner');
+  await settings.getByRole('button', { name: 'Add owner' }).click();
+  await expect(settings.getByLabel('Owner name for E2E Owner')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(settingsButton).toBeFocused();
+
+  const reminderButton = page.getByRole('button', { name: /shared reminders/ });
+  await reminderButton.click();
+  const reminders = page.getByRole('dialog', { name: 'Shared reminders' });
+  await expect(reminders.getByText(/Snoozing a reminder affects everyone/)).toBeVisible();
+  const accessibility = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
+  expect(accessibility.violations).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(reminderButton).toBeFocused();
+});
+
 test('mobile shell fits the viewport and preserves navigation', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'Mobile-only responsive assertion');
   await page.goto('/login');

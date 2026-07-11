@@ -35,9 +35,11 @@ const integrity = auditWorkspaceData({
   people: data.people!,
   routes: data.routes!,
   activities: data.activities!,
+  owners: data.owners!,
+  settings: data.settings!,
   workspaceId,
 });
-const manifest = { schemaVersion: 1, exportedAt, repositoryType, workspaceId, stores, integrity };
+const manifest = { schemaVersion: 2, exportedAt, repositoryType, workspaceId, stores, integrity };
 writeFileSync(resolve(output, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 console.log(
   JSON.stringify({ ok: integrity.ok, output, counts: integrity.counts, issueCount: integrity.issues.length }, null, 2),

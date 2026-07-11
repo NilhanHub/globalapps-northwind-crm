@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, CalendarClock, Check, CircleAlert, UserRoundCheck } from 'lucide-react';
 import { Badge, Button, Card, Select, Alert, IconButton, Input } from '@northwind/ui';
-import type { Company, Person, Route } from '@northwind/domain';
+import type { Company, OwnerProfile, Person, Route } from '@northwind/domain';
 import { PageHeader } from '../components/page-header';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
@@ -11,21 +11,28 @@ export function DashboardPage({
   companies,
   people,
   routes,
+  owners = [],
   onRefresh,
 }: {
   companies: Company[];
   people: Person[];
   routes: Route[];
+  owners?: OwnerProfile[];
   onRefresh?: () => Promise<unknown>;
 }) {
   const navigate = useNavigate();
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/London',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
   const active = routes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage));
   const overdue = active.filter((route) => route.dueDate && route.dueDate < today);
   const peopleById = new Map(people.map((person) => [person.id, person]));
-  const owners = ['Paul', 'Jeremy', 'Nilhan'] as const;
+  const activeOwners = owners.filter((owner) => owner.active && owner.id !== 'owner-unassigned');
 
   async function updateRoute(route: Route, changes: Record<string, unknown>, message: string) {
     setError('');
@@ -78,13 +85,13 @@ export function DashboardPage({
             <UserRoundCheck />
           </header>
           <div className="owner-list">
-            {owners.map((owner) => {
-              const owned = active.filter((route) => route.owner === owner);
+            {activeOwners.map((owner) => {
+              const owned = active.filter((route) => route.ownerId === owner.id);
               return (
-                <button key={owner} onClick={() => navigate('/routes')}>
-                  <div className="owner-avatar">{owner.slice(0, 1)}</div>
+                <button key={owner.id} onClick={() => navigate('/routes')}>
+                  <div className="owner-avatar">{owner.displayName.slice(0, 1)}</div>
                   <div>
-                    <h3>{owner}</h3>
+                    <h3>{owner.displayName}</h3>
                     <p>{owned.length} active routes</p>
                   </div>
                   <strong>
@@ -114,20 +121,21 @@ export function DashboardPage({
                   <strong>{route.companyName}</strong>
                   <span>{peopleById.get(route.targetPersonId)?.name}</span>
                 </div>
-                {route.owner === 'unassigned' ? (
+                {route.ownerId === 'owner-unassigned' ? (
                   <Select
                     aria-label={`Assign ${route.companyName}`}
-                    value={route.owner}
+                    value={route.ownerId}
                     onChange={(event) =>
-                      updateRoute(route, { owner: event.target.value }, `${route.companyName} assigned.`)
+                      updateRoute(route, { ownerId: event.target.value }, `${route.companyName} assigned.`)
                     }
                     className="max-w-[120px] h-8 py-0.5"
                   >
-                    <option value="unassigned">Assign…</option>
-                    <option>Paul</option>
-                    <option>Jeremy</option>
-                    <option>Nilhan</option>
-                    <option value="other">Other</option>
+                    <option value="owner-unassigned">Assign…</option>
+                    {activeOwners.map((owner) => (
+                      <option key={owner.id} value={owner.id}>
+                        {owner.displayName}
+                      </option>
+                    ))}
                   </Select>
                 ) : (
                   <Badge tone={route.dueDate && route.dueDate < today ? 'copper' : 'neutral'}>{route.owner}</Badge>

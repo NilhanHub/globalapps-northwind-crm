@@ -51,7 +51,14 @@ npm run verify:release verify plus emulator, build and Playwright journeys
 npm run data:integrity read-only repository relationship and duplicate audit
 npm run data:export:firestore timestamped Firestore export with IDs and hashes
 npm run data:verify-export validate an export's schema, hashes and relationships
+npm run data:migrate:owners idempotently seed owner profiles and map existing routes
+npm run data:migrate:query-keys idempotently fill normalized Firestore paging/search keys
 npm run ops:footprint report deploy files, bytes, caches and threshold usage
+npm run backup:hostinger:run create and retain a validated encrypted backup
+npm run backup:hostinger:status report backup count, age and filenames
+npm run backup:verify validate an encrypted backup envelope and checksum
+npm run backup:decrypt decrypt a backup with a temporarily supplied private key
+npm run backup:restore:validate validate IDs, hashes and relationships after decryption
 ```
 
 ## Security model
@@ -64,7 +71,9 @@ Current cloud provisioning and cutover status is recorded in [docs/CLOUD_STATUS.
 
 ## Data safety
 
-Migration never deletes the four root stores. Firestore writes are transactional, records carry optimistic versions and stale writes return `409`. Daily and weekly managed backups are complemented by nightly private GCS exports. JSON remains the schema-validated local adapter. Archive is distinct from Won/Dead and is reversible by operation ID.
+Migration never deletes the root stores. Firestore writes are transactional, records carry optimistic versions and stale writes return `409`. Daily and weekly managed backups are complemented by nightly private GCS exports and two encrypted Hostinger recovery archives. JSON remains the schema-validated local adapter. Archive is distinct from Won/Dead and is reversible by operation ID.
+
+Route owners are configurable workspace labels, not login identities. Shared in-app reminders use `Europe/London`; their snoozes are workspace-wide and audited. Large company, people, route and activity lists use opaque server cursors while the compatibility collection endpoints remain available for bounded maintenance work.
 
 Normal releases never compare production to the obsolete root JSON seed. Use `data:integrity`, `data:export:firestore` and `data:verify-export` against current Firestore state. Research intake is dry-run first, provenance-aware, resumable and idempotent through `/imports`.
 

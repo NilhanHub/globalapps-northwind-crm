@@ -4,7 +4,7 @@ import { basename, resolve } from 'node:path';
 import { auditWorkspaceData, canonicalize } from '@northwind/domain';
 import { storeSchemas, type StoreName } from '../../apps/api/src/repositories/repository.js';
 
-export const exportStores: StoreName[] = ['companies', 'people', 'routes', 'activities', 'importJobs'];
+export const exportStores: StoreName[] = ['companies', 'people', 'routes', 'activities', 'importJobs', 'owners', 'settings'];
 
 export function sha256(value: string | Buffer) {
   return createHash('sha256').update(value).digest('hex');
@@ -21,7 +21,7 @@ export function validateExportDirectory(directory: string) {
     workspaceId: string;
     stores: Record<string, { file: string; count: number; ids: string[]; sha256: string }>;
   };
-  if (manifest.schemaVersion !== 1) throw new Error(`Unsupported export schema: ${manifest.schemaVersion}`);
+  if (manifest.schemaVersion !== 2) throw new Error(`Unsupported export schema: ${manifest.schemaVersion}`);
   const data: Record<string, Array<Record<string, unknown>>> = {};
   for (const store of exportStores) {
     const descriptor = manifest.stores[store];
@@ -41,6 +41,8 @@ export function validateExportDirectory(directory: string) {
     people: data.people!,
     routes: data.routes!,
     activities: data.activities!,
+    owners: data.owners!,
+    settings: data.settings!,
     workspaceId: manifest.workspaceId,
   });
   if (!integrity.ok) throw new Error(`Export integrity failed with ${integrity.issues.length} relationship issue(s)`);

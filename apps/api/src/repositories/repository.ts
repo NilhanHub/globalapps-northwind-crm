@@ -1,5 +1,13 @@
 import type { z } from 'zod';
-import { activitySchema, companySchema, importJobSchema, personSchema, routeSchema } from '@northwind/domain';
+import {
+  activitySchema,
+  companySchema,
+  importJobSchema,
+  ownerProfileSchema,
+  personSchema,
+  routeSchema,
+  workspaceSettingsSchema,
+} from '@northwind/domain';
 
 export const storeSchemas = {
   companies: companySchema,
@@ -7,11 +15,22 @@ export const storeSchemas = {
   routes: routeSchema,
   activities: activitySchema,
   importJobs: importJobSchema,
+  owners: ownerProfileSchema,
+  settings: workspaceSettingsSchema,
 } as const;
 
 export type StoreName = keyof typeof storeSchemas;
 export type StoreRecord<S extends StoreName> = z.infer<(typeof storeSchemas)[S]>;
 export type StoreChanges = Partial<{ [S in StoreName]: StoreRecord<S>[] }>;
+export type PageQuery = {
+  limit: number;
+  orderBy: string;
+  direction: 'asc' | 'desc';
+  startAfter?: [unknown, string];
+  equals?: Record<string, unknown>;
+  prefix?: { field: string; value: string };
+};
+export type RepositoryPage<T> = { items: T[]; nextAnchor: [unknown, string] | null; hasMore: boolean };
 
 export class VersionConflictError extends Error {
   readonly code = 'VERSION_CONFLICT';
@@ -39,6 +58,7 @@ export interface CrmRepository {
   healthCheck(): Promise<void>;
   getWorkspaceRevision(workspaceId: string): Promise<{ revision: string; updatedAt: string }>;
   list<S extends StoreName>(store: S, workspaceId: string): Promise<StoreRecord<S>[]>;
+  page<S extends StoreName>(store: S, workspaceId: string, query: PageQuery): Promise<RepositoryPage<StoreRecord<S>>>;
   create<S extends StoreName>(store: S, input: Record<string, unknown>, workspaceId: string): Promise<StoreRecord<S>>;
   update<S extends StoreName>(
     store: S,

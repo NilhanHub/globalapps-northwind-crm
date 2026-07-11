@@ -11,12 +11,16 @@ import {
   DuplicateIdentityError,
   DuplicateActiveRouteError,
   interactionSchema,
+  defaultOwnerProfiles,
+  deriveRouteReminders,
   normalizeIdentity,
+  OWNER_IDS,
   prepareCompany,
   preparePerson,
   prepareRoute,
   routeSchema,
   routeStageSchema,
+  workspaceSettingsSchema,
 } from '@northwind/domain';
 import type { RequestContext } from '@northwind/domain';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
@@ -28,10 +32,19 @@ import { RecordNotFoundError, VersionConflictError } from './repositories/reposi
 import { ZodError } from 'zod';
 import { registerImportRoutes } from './routes/imports.js';
 import { registerMaintenanceRoutes, type ReleaseMetadata } from './routes/maintenance.js';
+import { registerOwnerRoutes } from './routes/owners.js';
+import { registerPageRoutes } from './routes/pages.js';
+import { registerReminderRoutes } from './routes/reminders.js';
 
 const SESSION_COOKIE = 'northwind_session';
 const CSRF_COOKIE = 'northwind_csrf';
-const publicPaths = new Set(['/api/health', '/api/live', '/api/ready', '/api/auth/login']);
+const publicPaths = new Set([
+  '/api/health',
+  '/api/live',
+  '/api/ready',
+  '/api/auth/login',
+  '/api/maintenance/backups/run',
+]);
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 const safeHashEqual = (left: string, right: string) => {
   const a = Buffer.from(left);
@@ -49,6 +62,7 @@ type AppOptions = {
   allowedOrigins?: string[];
   logRequests?: boolean;
   release?: ReleaseMetadata;
+  backup?: { directory: string; publicKeyPem: string; triggerTokenHash: string };
 };
 
 declare module 'fastify' {
@@ -269,6 +283,7 @@ export async function createApp(options: AppOptions) {
   registerMaintenanceRoutes(app, {
     repository: options.repository,
     ...(options.release ? { release: options.release } : {}),
+    ...(options.backup ? { backup: options.backup } : {}),
   });
 
   app.post(
@@ -324,15 +339,34 @@ export async function createApp(options: AppOptions) {
 
   app.get('/api/bootstrap', async (request) => {
     const workspaceId = request.requestContext!.workspaceId;
-    const [companies, people, routes, activities, workspaceRevision] = await Promise.all([
+    const [companies, people, routes, activities, storedOwners, storedSettings, workspaceRevision] = await Promise.all([
       options.repository.list('companies', workspaceId),
       options.repository.list('people', workspaceId),
       options.repository.list('routes', workspaceId),
       options.repository.list('activities', workspaceId),
+      options.repository.list('owners', workspaceId),
+      options.repository.list('settings', workspaceId),
       options.repository.getWorkspaceRevision(workspaceId),
     ]);
-    return { companies, people, routes, activities, workspaceRevision };
+    const owners = storedOwners.length ? storedOwners : defaultOwnerProfiles(new Date().toISOString(), workspaceId);
+    const settings =
+      storedSettings[0] ??
+      workspaceSettingsSchema.parse({
+        id: 'settings',
+        timezone: 'Europe/London',
+        updatedAt: new Date().toISOString(),
+        workspaceId,
+      });
+    const reminderSummary = deriveRouteReminders({ routes, activities, settings }).reduce<Record<string, number>>(
+      (summary, reminder) => ({ ...summary, [reminder.category]: (summary[reminder.category] ?? 0) + 1 }),
+      {},
+    );
+    return { companies, people, routes, activities, owners, settings, reminderSummary, workspaceRevision };
   });
+
+  registerPageRoutes(app, options.repository);
+  registerOwnerRoutes(app, options.repository);
+  registerReminderRoutes(app, options.repository);
 
   registerImportRoutes(app, options.repository);
 
@@ -596,18 +630,32 @@ export async function createApp(options: AppOptions) {
 
   app.post('/api/routes', async (request, reply) => {
     const context = request.requestContext!;
-    const [companies, people, routes] = await Promise.all([
+    const [companies, people, routes, storedOwners] = await Promise.all([
       options.repository.list('companies', context.workspaceId),
       options.repository.list('people', context.workspaceId),
       options.repository.list('routes', context.workspaceId),
+      options.repository.list('owners', context.workspaceId),
     ]);
-    const record = prepareRoute(request.body as Record<string, unknown>, {
-      id: `route-${randomUUID()}`,
-      now: new Date().toISOString(),
-      companies,
-      people,
-      routes,
-    });
+    const owners = storedOwners.length
+      ? storedOwners
+      : defaultOwnerProfiles(new Date().toISOString(), context.workspaceId);
+    const body = request.body as Record<string, unknown>;
+    const requestedOwner = owners.find(
+      (owner) =>
+        owner.active &&
+        (owner.id === body.ownerId || owner.normalizedName === normalizeIdentity(String(body.owner ?? 'unassigned'))),
+    );
+    if (!requestedOwner) throw new DomainValidationError('ownerId must reference an active owner', 'ownerId');
+    const record = prepareRoute(
+      { ...body, ownerId: requestedOwner.id, owner: requestedOwner.displayName },
+      {
+        id: `route-${randomUUID()}`,
+        now: new Date().toISOString(),
+        companies,
+        people,
+        routes,
+      },
+    );
     return reply.status(201).send(await options.repository.create('routes', record, context.workspaceId));
   });
 
@@ -625,13 +673,33 @@ export async function createApp(options: AppOptions) {
         new Error('Stage, outcome and relationship references must be changed through audited route actions'),
         { statusCode: 400, code: 'AUDITED_ACTION_REQUIRED' },
       );
-    const routes = await options.repository.list('routes', context.workspaceId);
+    const [routes, storedOwners] = await Promise.all([
+      options.repository.list('routes', context.workspaceId),
+      options.repository.list('owners', context.workspaceId),
+    ]);
     const index = routes.findIndex((route) => route.id === (request.params as { id: string }).id);
     if (index < 0) throw new RecordNotFoundError((request.params as { id: string }).id);
     const current = routes[index]!;
     if (current.version !== expectedVersion) throw new VersionConflictError(current.version);
     const now = new Date().toISOString();
-    const updated = routeSchema.parse({ ...current, ...body, updatedAt: now, version: current.version + 1 });
+    const owners = storedOwners.length ? storedOwners : defaultOwnerProfiles(now, context.workspaceId);
+    const requestedOwner =
+      body.ownerId !== undefined || body.owner !== undefined
+        ? owners.find(
+            (owner) =>
+              owner.active &&
+              (owner.id === body.ownerId || owner.normalizedName === normalizeIdentity(String(body.owner ?? ''))),
+          )
+        : undefined;
+    if ((body.ownerId !== undefined || body.owner !== undefined) && !requestedOwner)
+      throw new DomainValidationError('ownerId must reference an active owner', 'ownerId');
+    const updated = routeSchema.parse({
+      ...current,
+      ...body,
+      ...(requestedOwner ? { ownerId: requestedOwner.id, owner: requestedOwner.displayName } : {}),
+      updatedAt: now,
+      version: current.version + 1,
+    });
     routes[index] = updated;
     const activity = createRouteActivity({
       id: `activity-${randomUUID()}`,
@@ -640,8 +708,18 @@ export async function createApp(options: AppOptions) {
       type: 'edit',
       summary: 'Route details updated',
       now,
-      previousState: { owner: current.owner, dueDate: current.dueDate, nextAction: current.nextAction },
-      resultingState: { owner: updated.owner, dueDate: updated.dueDate, nextAction: updated.nextAction },
+      previousState: {
+        owner: current.owner,
+        ownerId: current.ownerId,
+        dueDate: current.dueDate,
+        nextAction: current.nextAction,
+      },
+      resultingState: {
+        owner: updated.owner,
+        ownerId: updated.ownerId,
+        dueDate: updated.dueDate,
+        nextAction: updated.nextAction,
+      },
     });
     await options.repository.upsertTransaction({ routes: [updated], activities: [activity] });
     return { route: updated, activity };
@@ -696,6 +774,7 @@ export async function createApp(options: AppOptions) {
       routeIds?: string[];
       action?: string;
       owner?: string;
+      ownerId?: string;
       dueDate?: string;
       nextAction?: string;
     };
@@ -704,7 +783,10 @@ export async function createApp(options: AppOptions) {
         statusCode: 400,
         code: 'BAD_INPUT',
       });
-    const routes = await options.repository.list('routes', context.workspaceId);
+    const [routes, storedOwners] = await Promise.all([
+      options.repository.list('routes', context.workspaceId),
+      options.repository.list('owners', context.workspaceId),
+    ]);
     const ids = new Set(body.routeIds);
     if (routes.filter((route) => ids.has(route.id) && !route.archivedAt).length !== ids.size)
       throw new RecordNotFoundError('One or more selected routes');
@@ -712,6 +794,17 @@ export async function createApp(options: AppOptions) {
     if (body.action && body.action !== 'reset')
       throw Object.assign(new Error('Unsupported bulk route action'), { statusCode: 400, code: 'BAD_INPUT' });
     const reset = body.action === 'reset';
+    const owners = storedOwners.length ? storedOwners : defaultOwnerProfiles(now, context.workspaceId);
+    const requestedOwner =
+      body.ownerId !== undefined || body.owner !== undefined
+        ? owners.find(
+            (owner) =>
+              owner.active &&
+              (owner.id === body.ownerId || owner.normalizedName === normalizeIdentity(String(body.owner ?? ''))),
+          )
+        : undefined;
+    if ((body.ownerId !== undefined || body.owner !== undefined) && !requestedOwner)
+      throw new DomainValidationError('ownerId must reference an active owner', 'ownerId');
     const changed = routes.map((route) => {
       if (!ids.has(route.id)) return route;
       return routeSchema.parse({
@@ -719,6 +812,7 @@ export async function createApp(options: AppOptions) {
         ...(reset
           ? {
               owner: 'unassigned',
+              ownerId: OWNER_IDS.unassigned,
               stage: 'Found route',
               outcome: 'pending',
               confidence: 'emerging',
@@ -726,7 +820,7 @@ export async function createApp(options: AppOptions) {
               nextAction: '',
             }
           : {
-              ...(body.owner !== undefined ? { owner: body.owner } : {}),
+              ...(requestedOwner ? { owner: requestedOwner.displayName, ownerId: requestedOwner.id } : {}),
               ...(body.dueDate !== undefined ? { dueDate: body.dueDate } : {}),
               ...(body.nextAction !== undefined ? { nextAction: body.nextAction } : {}),
             }),
@@ -748,6 +842,7 @@ export async function createApp(options: AppOptions) {
             const previous = routes.find((item) => item.id === route.id)!;
             return {
               owner: previous.owner,
+              ownerId: previous.ownerId,
               stage: previous.stage,
               confidence: previous.confidence,
               outcome: previous.outcome,
@@ -758,6 +853,7 @@ export async function createApp(options: AppOptions) {
           })(),
           resultingState: {
             owner: route.owner,
+            ownerId: route.ownerId,
             stage: route.stage,
             confidence: route.confidence,
             outcome: route.outcome,
@@ -782,12 +878,15 @@ export async function createApp(options: AppOptions) {
     const current = routes[index]!;
     const previousState = {
       owner: current.owner,
+      ownerId: current.ownerId,
       stage: current.stage,
       confidence: current.confidence,
       nextAction: current.nextAction,
       dueDate: current.dueDate,
       outcome: current.outcome,
       notes: current.notes,
+      reminderSnoozedUntil: current.reminderSnoozedUntil,
+      reminderSnoozeReason: current.reminderSnoozeReason,
     };
     const action = String(body.action ?? '');
     const requestedStage = action === 'move_stage' ? routeStageSchema.parse(body.stage) : undefined;
@@ -811,22 +910,42 @@ export async function createApp(options: AppOptions) {
         summary: `Route moved to ${requestedStage}`,
       },
       reset: { type: 'reset', summary: 'Route workflow reset to Found route' },
+      complete_next_action: { type: 'next_action_completed', summary: 'Next action completed' },
+      reschedule_next_action: { type: 'next_action_rescheduled', summary: 'Next action rescheduled' },
+      snooze_reminder: { type: 'reminder_snoozed', summary: 'Route reminder snoozed' },
+      clear_reminder_snooze: { type: 'reminder_snooze_cleared', summary: 'Route reminder snooze cleared' },
     };
     const definition = actionMap[action];
     if (!definition) throw Object.assign(new Error('Unsupported route action'), { statusCode: 400, code: 'BAD_INPUT' });
     if (['mark_won', 'mark_dead'].includes(action) && !String(body.reason ?? '').trim())
       throw Object.assign(new Error('A reason is required'), { statusCode: 400, code: 'BAD_INPUT' });
+    if (action === 'reschedule_next_action' && !/^\d{4}-\d{2}-\d{2}$/.test(String(body.followUpDate ?? '')))
+      throw new DomainValidationError('A valid follow-up date is required', 'followUpDate');
     const interaction = ['call_mutual', 'message_mutual'].includes(action)
       ? interactionSchema.parse(body.interaction)
       : undefined;
     if (interaction && ![current.targetPersonId, current.mutualPersonId].includes(interaction.contactPersonId))
       throw new DomainValidationError('Interaction contact must belong to this route', 'interaction.contactPersonId');
     const now = new Date().toISOString();
-    const updated = {
+    let reminderPatch: Record<string, unknown> = {};
+    if (action === 'snooze_reminder') {
+      const until = String(body.until ?? '');
+      const duration = Date.parse(until) - Date.parse(now);
+      if (!Number.isFinite(duration) || duration < 3_600_000 || duration > 30 * 86_400_000)
+        throw new DomainValidationError('Reminder snooze must be between one hour and 30 days', 'until');
+      reminderPatch = {
+        reminderSnoozedUntil: new Date(Date.parse(until)).toISOString(),
+        reminderSnoozeReason: String(body.reason ?? '')
+          .trim()
+          .slice(0, 500),
+      };
+    }
+    const baseUpdated = {
       ...current,
       ...(action === 'reset'
         ? {
             owner: 'unassigned',
+            ownerId: OWNER_IDS.unassigned,
             stage: 'Found route',
             confidence: 'emerging',
             outcome: 'pending',
@@ -834,6 +953,7 @@ export async function createApp(options: AppOptions) {
             nextAction: '',
           }
         : {}),
+      ...(action === 'complete_next_action' ? { nextAction: '', dueDate: '' } : {}),
       ...(definition.stage ? { stage: definition.stage } : {}),
       ...(definition.outcome ? { outcome: definition.outcome } : {}),
       ...(interaction
@@ -842,17 +962,31 @@ export async function createApp(options: AppOptions) {
             ...(body.nextAction !== undefined ? { nextAction: String(body.nextAction) } : {}),
             ...(body.followUpDate !== undefined ? { dueDate: String(body.followUpDate) } : {}),
           }),
+      ...reminderPatch,
       updatedAt: now,
       version: current.version + 1,
     };
+    const updated =
+      action === 'clear_reminder_snooze'
+        ? routeSchema.parse(
+            Object.fromEntries(
+              Object.entries(baseUpdated).filter(
+                ([key]) => !['reminderSnoozedUntil', 'reminderSnoozeReason'].includes(key),
+              ),
+            ),
+          )
+        : routeSchema.parse(baseUpdated);
     const resultingState = {
       owner: updated.owner,
+      ownerId: updated.ownerId,
       stage: updated.stage,
       confidence: updated.confidence,
       nextAction: updated.nextAction,
       dueDate: updated.dueDate,
       outcome: updated.outcome,
       notes: updated.notes,
+      reminderSnoozedUntil: updated.reminderSnoozedUntil,
+      reminderSnoozeReason: updated.reminderSnoozeReason,
     };
     const activity = createRouteActivity({
       id: `activity-${randomUUID()}`,

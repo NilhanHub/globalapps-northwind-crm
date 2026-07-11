@@ -16,6 +16,8 @@ export default tseslint.config(
       '.tmp-debug.js',
       'Evidence/**',
       'data/**',
+      'playwright-report/**',
+      'test-results/**',
     ],
   },
   js.configs.recommended,

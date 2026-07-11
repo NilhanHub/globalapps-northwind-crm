@@ -1,8 +1,11 @@
-import { useEffect, useState, type PropsWithChildren } from 'react';
-import { Building2, FileUp, Gauge, LogOut, Network, Route, Search, UsersRound } from 'lucide-react';
+import { useEffect, useRef, useState, type PropsWithChildren } from 'react';
+import { Bell, Building2, FileUp, Gauge, LogOut, Network, Route, Search, Settings, UsersRound } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Dialog, IconButton } from '@northwind/ui';
 import { useAuth } from './auth';
+import { ReminderDialog } from './components/reminder-dialog';
+import { WorkspaceSettingsDialog } from './components/workspace-settings-dialog';
+import { useRemindersQuery, useWorkspaceSearch } from './queries';
 
 const items = [
   { to: '/companies', label: 'Companies', icon: Building2 },
@@ -17,7 +20,13 @@ export function AppShell({ children }: PropsWithChildren) {
   const auth = useAuth();
   const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const reminderButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const reminders = useRemindersQuery(Boolean(auth.session));
+  const workspaceSearch = useWorkspaceSearch(query, searchOpen && Boolean(auth.session));
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -67,6 +76,25 @@ export function AppShell({ children }: PropsWithChildren) {
               <strong>{auth.session?.actor || 'Northwind'}</strong>
               <small>Shared account</small>
             </div>
+            <IconButton
+              ref={reminderButtonRef}
+              variant="ghost"
+              aria-label={`${reminders.data?.items.length ?? 0} shared reminders`}
+              onClick={() => setReminderOpen(true)}
+            >
+              <Bell size={15} />
+              {(reminders.data?.items.length ?? 0) > 0 ? (
+                <span className="reminder-badge">{reminders.data!.items.length}</span>
+              ) : null}
+            </IconButton>
+            <IconButton
+              ref={settingsButtonRef}
+              variant="ghost"
+              aria-label="Workspace settings"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings size={15} />
+            </IconButton>
             <IconButton variant="ghost" aria-label="Log out" onClick={() => auth.logout()}>
               <LogOut size={15} />
             </IconButton>
@@ -113,8 +141,40 @@ export function AppShell({ children }: PropsWithChildren) {
               <kbd>↵</kbd>
             </button>
           ))}
+          {workspaceSearch.data?.items.map((item) => (
+            <button
+              key={`${item.kind}-${item.id}`}
+              onClick={() => {
+                navigate(item.href);
+                setSearchOpen(false);
+                setQuery('');
+              }}
+            >
+              <Search size={17} />
+              <span>
+                {item.label}
+                <small>{item.kind}</small>
+              </span>
+              <kbd>↵</kbd>
+            </button>
+          ))}
+          {query.trim().length >= 2 && workspaceSearch.isPending ? <p role="status">Searching CRM records…</p> : null}
         </div>
       </Dialog>
+      <ReminderDialog
+        open={reminderOpen}
+        onOpenChange={(open) => {
+          setReminderOpen(open);
+          if (!open) requestAnimationFrame(() => reminderButtonRef.current?.focus());
+        }}
+      />
+      <WorkspaceSettingsDialog
+        open={settingsOpen}
+        onOpenChange={(open) => {
+          setSettingsOpen(open);
+          if (!open) requestAnimationFrame(() => settingsButtonRef.current?.focus());
+        }}
+      />
     </div>
   );
 }
