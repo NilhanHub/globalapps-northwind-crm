@@ -108,10 +108,11 @@ describe('CRM workspaces', () => {
     );
     expect(screen.getByRole('heading', { name: 'Routes' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Paul Dunk' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Show 1 mutual paths for Paul Dunk' }));
     expect(screen.getAllByText('Siobhan Devall')[0]).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Intro requested' })).toBeVisible();
-    expect(screen.getByRole('checkbox', { name: 'Select route for Paul Dunk' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Move Paul Dunk to another stage' })).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: 'Select all routes for Paul Dunk' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Move path via Siobhan Devall to another stage' })).toBeVisible();
   });
 
   it('keeps selected routes intact and explains a failed bulk update', async () => {
@@ -121,7 +122,7 @@ describe('CRM workspaces', () => {
         <RoutesPage companies={companies as never} people={people as never} routes={routes as never} />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select route for Paul Dunk' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all routes for Paul Dunk' }));
     fireEvent.click(screen.getByRole('button', { name: 'Update selected' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('selected routes could not be updated'));
     expect(screen.getByText('1 selected')).toBeVisible();

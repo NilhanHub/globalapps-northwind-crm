@@ -14,7 +14,7 @@ import {
   Dialog,
 } from '@northwind/ui';
 import type { BootstrapData } from '../types';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { ApiError } from '@northwind/api-client';
 
@@ -30,21 +30,23 @@ const actionButtons = [
 export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRefresh(): Promise<unknown> }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const route = data.routes.find((item) => item.id === id);
   const [details, setDetails] = useState('');
+  const [contactPersonId, setContactPersonId] = useState(route?.mutualPersonId ?? '');
+  const [channel, setChannel] = useState<'call' | 'email' | 'linkedin' | 'message' | 'meeting' | 'other'>('call');
+  const [interactionOutcome, setInteractionOutcome] = useState('');
+  const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString().slice(0, 16));
   const [nextAction, setNextAction] = useState(route?.nextAction ?? '');
   const [followUpDate, setFollowUpDate] = useState(route?.dueDate ?? '');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [undo, setUndo] = useState<{ activityId: string } | null>(null);
-  const [pendingConfirmation, setPendingConfirmation] = useState<'mark_won' | 'mark_dead' | 'archive' | null>(null);
-
-  useEffect(() => {
-    if (!undo) return;
-    const timeout = window.setTimeout(() => setUndo(null), 30_000);
-    return () => window.clearTimeout(timeout);
-  }, [undo]);
+  const [manualUndo, setManualUndo] = useState<{ activityId: string; expiresAt: number } | null>(null);
+  const [undoClock, setUndoClock] = useState(() => Date.now());
+  const [pendingConfirmation, setPendingConfirmation] = useState<'mark_won' | 'mark_dead' | 'archive' | 'reset' | null>(
+    searchParams.get('outcome') === 'won' ? 'mark_won' : searchParams.get('outcome') === 'dead' ? 'mark_dead' : null,
+  );
 
   const timeline = useMemo(
     () =>
@@ -53,6 +55,34 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
     [data.activities, id],
   );
+
+  const timelineUndo = useMemo(() => {
+    const latestMutation = timeline.find((activity) => activity.type !== 'note');
+    const occurred = latestMutation ? Date.parse(latestMutation.timestamp) : 0;
+    if (
+      latestMutation &&
+      latestMutation.type !== 'undo' &&
+      typeof latestMutation.previousState === 'object' &&
+      occurred > 0 &&
+      undoClock - occurred < 5 * 60_000
+    ) {
+      return { activityId: latestMutation.id, expiresAt: occurred + 5 * 60_000 };
+    }
+    return null;
+  }, [timeline, undoClock]);
+  const undo = manualUndo ?? timelineUndo;
+
+  useEffect(() => {
+    if (!undo) return;
+    const timeout = window.setTimeout(
+      () => {
+        setManualUndo(null);
+        setUndoClock(Date.now());
+      },
+      Math.max(0, undo.expiresAt - Date.now()),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [undo]);
 
   if (!route)
     return (
@@ -69,11 +99,14 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
     setBusy(action);
     setError('');
     try {
-      const result = await api.request<{ activity: { id: string } }>(`/api/routes/${route!.id}/actions`, {
-        method: 'POST',
-        body: { action, details, nextAction, followUpDate, reason, ...extra },
-      });
-      setUndo({ activityId: result.activity.id });
+      const result = await api.request<{ activity: { id: string; timestamp: string } }>(
+        `/api/routes/${route!.id}/actions`,
+        {
+          method: 'POST',
+          body: { action, details, nextAction, followUpDate, reason, ...extra },
+        },
+      );
+      setManualUndo({ activityId: result.activity.id, expiresAt: Date.parse(result.activity.timestamp) + 5 * 60_000 });
       await onRefresh();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'The route could not be updated.');
@@ -82,12 +115,30 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
     }
   }
 
+  async function performInteraction(action: 'call_mutual' | 'message_mutual') {
+    if (!interactionOutcome.trim()) {
+      setError('Add the interaction outcome before recording it.');
+      return;
+    }
+    await perform(action, {
+      interaction: {
+        contactPersonId,
+        channel,
+        outcome: interactionOutcome.trim(),
+        occurredAt: new Date(occurredAt).toISOString(),
+        notes: details,
+        nextAction,
+        followUpDate,
+      },
+    });
+  }
+
   async function undoLast() {
     if (!undo) return;
     setBusy('undo');
     try {
       await api.request(`/api/routes/${route!.id}/actions/${undo.activityId}/undo`, { method: 'POST', body: {} });
-      setUndo(null);
+      setManualUndo(null);
       await onRefresh();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Undo is no longer available.');
@@ -171,7 +222,14 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
 
           <div className="action-grid mb-5">
             {actionButtons.map(([action, label, Icon]) => (
-              <Button variant="secondary" key={action} disabled={Boolean(busy)} onClick={() => perform(action)}>
+              <Button
+                variant="secondary"
+                key={action}
+                disabled={Boolean(busy)}
+                onClick={() =>
+                  action === 'call_mutual' || action === 'message_mutual' ? performInteraction(action) : perform(action)
+                }
+              >
                 <Icon size={16} className="mr-2 text-copper" />
                 {label}
               </Button>
@@ -179,6 +237,47 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
           </div>
 
           <div className="action-context grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <Field>
+              <Label htmlFor="interaction-contact">Contact</Label>
+              <Select
+                id="interaction-contact"
+                value={contactPersonId}
+                onChange={(event) => setContactPersonId(event.target.value)}
+              >
+                <option value={route.mutualPersonId}>{mutual?.name || 'Mutual contact'}</option>
+                <option value={route.targetPersonId}>{target?.name || 'Target contact'}</option>
+              </Select>
+            </Field>
+            <Field>
+              <Label htmlFor="interaction-channel">Channel</Label>
+              <Select
+                id="interaction-channel"
+                value={channel}
+                onChange={(event) => setChannel(event.target.value as typeof channel)}
+              >
+                {['call', 'email', 'linkedin', 'message', 'meeting', 'other'].map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field>
+              <Label htmlFor="occurredAt">Occurred</Label>
+              <Input
+                id="occurredAt"
+                type="datetime-local"
+                value={occurredAt}
+                onChange={(event) => setOccurredAt(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <Label htmlFor="interactionOutcome">Interaction outcome</Label>
+              <Input
+                id="interactionOutcome"
+                value={interactionOutcome}
+                onChange={(event) => setInteractionOutcome(event.target.value)}
+                placeholder="Connected, left voicemail, replied…"
+              />
+            </Field>
             <Field className="md:col-span-2">
               <Label htmlFor="details">Outcome or notes</Label>
               <Textarea
@@ -266,6 +365,9 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
             >
               <Archive size={16} className="mr-2" /> Archive
             </Button>
+            <Button variant="ghost" onClick={() => setPendingConfirmation('reset')} disabled={Boolean(busy)}>
+              <RotateCcw size={16} className="mr-2" /> Reset workflow
+            </Button>
           </div>
         </Card>
 
@@ -335,7 +437,9 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
             ? 'Confirm won outcome'
             : pendingConfirmation === 'mark_dead'
               ? 'Confirm dead outcome'
-              : 'Confirm route archive'
+              : pendingConfirmation === 'reset'
+                ? 'Reset workflow state'
+                : 'Confirm route archive'
         }
         description="This change is recorded in the audit trail. Check the reason before continuing."
         footer={
@@ -346,20 +450,36 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
             <Button
               variant={pendingConfirmation === 'mark_dead' ? 'danger' : 'primary'}
               onClick={confirmPendingAction}
-              disabled={Boolean(busy)}
+              disabled={
+                Boolean(busy) || (['mark_won', 'mark_dead'].includes(String(pendingConfirmation)) && !reason.trim())
+              }
             >
               {pendingConfirmation === 'mark_won'
                 ? 'Confirm won'
                 : pendingConfirmation === 'mark_dead'
                   ? 'Confirm dead'
-                  : 'Confirm archive'}
+                  : pendingConfirmation === 'reset'
+                    ? 'Reset route'
+                    : 'Confirm archive'}
             </Button>
           </>
         }
       >
         <div className="record-safety">
           <h3>Recorded reason</h3>
-          <p>{reason}</p>
+          {pendingConfirmation === 'reset' ? (
+            <p>Owner, confidence and scheduling return to the initial state. Research and history remain.</p>
+          ) : (
+            <>
+              <Label htmlFor="confirmation-reason">Reason</Label>
+              <Input
+                id="confirmation-reason"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Required for won or dead outcomes"
+              />
+            </>
+          )}
         </div>
       </Dialog>
     </section>

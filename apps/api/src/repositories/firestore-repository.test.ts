@@ -36,6 +36,7 @@ describe('Firestore repository safeguards', () => {
       version: 1,
     };
     expect(validateFirestoreTransition(record, { ...record })).toBe('noop');
+    expect(validateFirestoreTransition(record, { ...record, optionalField: undefined })).toBe('noop');
   });
 
   it('returns activities chronologically even when Firestore document order differs', () => {

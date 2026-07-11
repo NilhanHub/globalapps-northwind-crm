@@ -11,7 +11,7 @@ test('shared login opens every primary workspace without console errors', async 
   await page.getByLabel('Password').fill('northwind-e2e-passphrase');
   await page.getByRole('button', { name: 'Open Northwind' }).click();
   await expect(page.getByRole('heading', { name: 'Companies' })).toBeVisible();
-  for (const path of ['/people', '/routes', '/dashboard', '/process', '/archived']) {
+  for (const path of ['/people', '/routes', '/dashboard', '/process', '/imports', '/archived']) {
     await page.goto(path);
     await expect(page.locator('main h1')).toBeVisible();
   }
@@ -71,8 +71,10 @@ test('creates a reusable relationship and advances an audited route', async ({ p
   await routeDialog.getByLabel('Owner').selectOption('Paul');
   await page.getByRole('dialog').getByRole('button', { name: 'Create warm route' }).click();
   await expect(page.getByRole('heading', { name: 'Taylor Decision Maker' })).toBeVisible();
-  await page.getByRole('button', { name: 'Open route for Taylor Decision Maker' }).click();
+  await page.getByRole('button', { name: /Show 1 mutual paths? for Taylor Decision Maker/i }).click();
+  await page.getByRole('button', { name: /Open route for Taylor Decision Maker/i }).click();
   await page.getByLabel('Outcome or notes').fill('Mutual is happy to help.');
+  await page.getByLabel('Interaction outcome').fill('Connected and agreed the next step.');
   await page.getByRole('button', { name: 'Log call' }).click();
   await expect(page.getByText('Action recorded.')).toBeVisible();
   await expect(page.getByText('Logged a call to the mutual contact')).toBeVisible();
@@ -97,7 +99,7 @@ test('verified release breakpoints avoid unintended page overflow', async ({ pag
   await page.getByRole('button', { name: 'Open Northwind' }).click();
   for (const width of [1920, 1440, 1280, 768, 390]) {
     await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
-    for (const path of ['/companies', '/people', '/routes', '/dashboard', '/process', '/archived']) {
+    for (const path of ['/companies', '/people', '/routes', '/dashboard', '/process', '/imports', '/archived']) {
       await page.goto(path);
       const dimensions = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,

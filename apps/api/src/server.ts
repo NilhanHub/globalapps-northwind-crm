@@ -5,13 +5,18 @@ import rateLimit from '@fastify/rate-limit';
 import staticPlugin from '@fastify/static';
 import {
   activitySchema,
+  companySchema,
   createRouteActivity,
   DomainValidationError,
+  DuplicateIdentityError,
   DuplicateActiveRouteError,
+  interactionSchema,
+  normalizeIdentity,
   prepareCompany,
   preparePerson,
   prepareRoute,
   routeSchema,
+  routeStageSchema,
 } from '@northwind/domain';
 import type { RequestContext } from '@northwind/domain';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
@@ -21,10 +26,12 @@ import type { AuthService } from './auth/auth-service.js';
 import type { CrmRepository } from './repositories/repository.js';
 import { RecordNotFoundError, VersionConflictError } from './repositories/repository.js';
 import { ZodError } from 'zod';
+import { registerImportRoutes } from './routes/imports.js';
+import { registerMaintenanceRoutes, type ReleaseMetadata } from './routes/maintenance.js';
 
 const SESSION_COOKIE = 'northwind_session';
 const CSRF_COOKIE = 'northwind_csrf';
-const publicPaths = new Set(['/api/health', '/api/auth/login']);
+const publicPaths = new Set(['/api/health', '/api/live', '/api/ready', '/api/auth/login']);
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 const safeHashEqual = (left: string, right: string) => {
   const a = Buffer.from(left);
@@ -37,9 +44,11 @@ type AppOptions = {
   authService: AuthService;
   secureCookies: boolean;
   agentTokenHash?: string;
+  agentTokens?: Array<{ keyId: string; tokenHash: string; permissions: Array<'read' | 'write'> }>;
   publicDir?: string;
   allowedOrigins?: string[];
   logRequests?: boolean;
+  release?: ReleaseMetadata;
 };
 
 declare module 'fastify' {
@@ -50,7 +59,17 @@ declare module 'fastify' {
 }
 
 export async function createApp(options: AppOptions) {
-  const app = Fastify({ logger: false, bodyLimit: 100 * 1024, trustProxy: true, requestIdHeader: 'x-request-id' });
+  const app = Fastify({
+    logger: options.logRequests
+      ? {
+          level: process.env.CRM_LOG_LEVEL || 'info',
+          redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie'],
+        }
+      : false,
+    bodyLimit: 100 * 1024,
+    trustProxy: true,
+    requestIdHeader: 'x-request-id',
+  });
   await app.register(cookie);
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -74,20 +93,6 @@ export async function createApp(options: AppOptions) {
     if (request.url.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
     return payload;
   });
-  if (options.logRequests)
-    app.addHook('onResponse', async (request, reply) => {
-      console.log(
-        JSON.stringify({
-          time: new Date().toISOString(),
-          level: 'info',
-          msg: 'http_request',
-          requestId: request.id,
-          method: request.method,
-          path: request.url.split('?')[0],
-          statusCode: reply.statusCode,
-        }),
-      );
-    });
   if (options.publicDir) {
     await app.register(staticPlugin, {
       root: options.publicDir,
@@ -132,6 +137,16 @@ export async function createApp(options: AppOptions) {
       });
     if (err instanceof DuplicateActiveRouteError)
       return void reply.status(409).send({ error: { code: err.code, message: err.message, requestId: request.id } });
+    if (err instanceof DuplicateIdentityError)
+      return void reply.status(409).send({
+        error: {
+          code: err.code,
+          message: err.message,
+          matches: err.matches,
+          mergeAvailable: true,
+          requestId: request.id,
+        },
+      });
     const statusCode = 'statusCode' in err ? Number(err.statusCode) : 0;
     const status =
       err instanceof VersionConflictError ? 409 : err instanceof RecordNotFoundError ? 404 : statusCode || 500;
@@ -158,20 +173,35 @@ export async function createApp(options: AppOptions) {
     }
     if (!path.startsWith('/api/') || publicPaths.has(path)) return;
     const authorization = request.headers.authorization ?? '';
-    if (
-      authorization.startsWith('Bearer ') &&
-      options.agentTokenHash &&
-      safeHashEqual(sha256(authorization.slice(7)), options.agentTokenHash)
-    ) {
+    const presentedTokenHash = authorization.startsWith('Bearer ') ? sha256(authorization.slice(7)) : '';
+    const configuredAgents = [
+      ...(options.agentTokenHash
+        ? [
+            {
+              keyId: 'legacy',
+              tokenHash: options.agentTokenHash,
+              permissions: ['read', 'write'] as Array<'read' | 'write'>,
+            },
+          ]
+        : []),
+      ...(options.agentTokens ?? []),
+    ];
+    const matchedAgent = presentedTokenHash
+      ? configuredAgents.find((agent) => safeHashEqual(presentedTokenHash, agent.tokenHash))
+      : undefined;
+    if (matchedAgent) {
       const requestedName =
         String(request.headers['x-agent-name'] ?? 'Desktop agent')
           .replace(/[^a-zA-Z0-9 ._-]/g, '')
           .slice(0, 60) || 'Desktop agent';
       request.requestContext = {
-        actor: `agent:${requestedName}`,
+        actor:
+          matchedAgent.keyId === 'legacy' ? `agent:${requestedName}` : `agent:${matchedAgent.keyId}:${requestedName}`,
         authType: 'agent',
         workspaceId: 'default',
         requestId: request.id,
+        agentKeyId: matchedAgent.keyId,
+        permissions: matchedAgent.permissions,
       };
       return;
     }
@@ -220,9 +250,25 @@ export async function createApp(options: AppOptions) {
     }
   });
 
-  app.get('/api/health', async () => {
-    await options.repository.healthCheck();
-    return { status: 'ok', service: 'northwind-api', repository: 'available', time: new Date().toISOString() };
+  app.addHook('preHandler', async (request, reply) => {
+    if (
+      request.requestContext?.authType === 'agent' &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(request.method) &&
+      !request.requestContext.permissions?.includes('write')
+    ) {
+      return reply.status(403).send({
+        error: {
+          code: 'AGENT_SCOPE_FORBIDDEN',
+          message: 'This agent token has read-only access.',
+          requestId: request.id,
+        },
+      });
+    }
+  });
+
+  registerMaintenanceRoutes(app, {
+    repository: options.repository,
+    ...(options.release ? { release: options.release } : {}),
   });
 
   app.post(
@@ -278,14 +324,17 @@ export async function createApp(options: AppOptions) {
 
   app.get('/api/bootstrap', async (request) => {
     const workspaceId = request.requestContext!.workspaceId;
-    const [companies, people, routes, activities] = await Promise.all([
+    const [companies, people, routes, activities, workspaceRevision] = await Promise.all([
       options.repository.list('companies', workspaceId),
       options.repository.list('people', workspaceId),
       options.repository.list('routes', workspaceId),
       options.repository.list('activities', workspaceId),
+      options.repository.getWorkspaceRevision(workspaceId),
     ]);
-    return { companies, people, routes, activities };
+    return { companies, people, routes, activities, workspaceRevision };
   });
+
+  registerImportRoutes(app, options.repository);
 
   app.get('/api/companies', async (request) => {
     const records = await options.repository.list('companies', request.requestContext!.workspaceId);
@@ -295,11 +344,20 @@ export async function createApp(options: AppOptions) {
 
   app.post('/api/companies', async (request, reply) => {
     const context = request.requestContext!;
+    const companies = await options.repository.list('companies', context.workspaceId);
     const record = prepareCompany(request.body as Record<string, unknown>, {
       id: `company-${randomUUID()}`,
       now: new Date().toISOString(),
       actor: context.actor,
     });
+    const matches = companies.filter(
+      (company) => !company.archivedAt && normalizeIdentity(company.name) === normalizeIdentity(record.name),
+    );
+    if (matches.length)
+      throw new DuplicateIdentityError(
+        'A company with this normalized name already exists.',
+        matches.map((company) => ({ id: company.id, name: company.name })),
+      );
     const created = await options.repository.create('companies', record, context.workspaceId);
     return reply.status(201).send(created);
   });
@@ -316,13 +374,55 @@ export async function createApp(options: AppOptions) {
       error.code = 'VERSION_REQUIRED';
       throw error;
     }
-    return options.repository.update(
-      'companies',
-      (request.params as { id: string }).id,
-      request.body as Record<string, unknown>,
-      expectedVersion,
-      context.workspaceId,
+    const id = (request.params as { id: string }).id;
+    const body = request.body as Record<string, unknown>;
+    const [companies, people, routes] = await Promise.all([
+      options.repository.list('companies', context.workspaceId),
+      options.repository.list('people', context.workspaceId),
+      options.repository.list('routes', context.workspaceId),
+    ]);
+    const index = companies.findIndex((company) => company.id === id);
+    if (index < 0) throw new RecordNotFoundError(id);
+    const current = companies[index]!;
+    if (current.version !== expectedVersion) throw new VersionConflictError(current.version);
+    const name = body.name === undefined ? current.name : String(body.name).trim();
+    if (!name) throw new DomainValidationError('Company name is required', 'name');
+    const duplicate = companies.find(
+      (company) =>
+        company.id !== id && !company.archivedAt && normalizeIdentity(company.name) === normalizeIdentity(name),
     );
+    if (duplicate)
+      throw new DuplicateIdentityError('A company with this normalized name already exists.', [
+        { id: duplicate.id, name: duplicate.name },
+      ]);
+    const updated = companySchema.parse({
+      ...current,
+      ...body,
+      id,
+      name,
+      normalizedName: normalizeIdentity(name),
+      workspaceId: context.workspaceId,
+      version: current.version + 1,
+    });
+    if (name === current.name)
+      return options.repository.update('companies', id, body, expectedVersion, context.workspaceId);
+    companies[index] = updated;
+    const renamedPeople = people.map((person) =>
+      person.companyId === id
+        ? { ...person, companyName: name, updatedAt: new Date().toISOString(), version: person.version + 1 }
+        : person,
+    );
+    const renamedRoutes = routes.map((route) =>
+      route.companyId === id
+        ? { ...route, companyName: name, updatedAt: new Date().toISOString(), version: route.version + 1 }
+        : route,
+    );
+    await options.repository.upsertTransaction({
+      companies: [updated],
+      people: renamedPeople.filter((person) => person.companyId === id),
+      routes: renamedRoutes.filter((route) => route.companyId === id),
+    });
+    return updated;
   });
 
   app.get('/api/people', async (request) => {
@@ -442,6 +542,58 @@ export async function createApp(options: AppOptions) {
     return includeArchived ? records : records.filter((record) => !record.archivedAt);
   });
 
+  app.get('/api/routes/search', async (request) => {
+    const context = request.requestContext!;
+    const query = request.query as {
+      q?: string;
+      owner?: string;
+      stage?: string;
+      due?: string;
+      source?: string;
+      cursor?: string;
+      limit?: string;
+    };
+    const [routes, people] = await Promise.all([
+      options.repository.list('routes', context.workspaceId),
+      options.repository.list('people', context.workspaceId),
+    ]);
+    const peopleById = new Map(people.map((person) => [person.id, person]));
+    const today = new Date().toISOString().slice(0, 10);
+    const search = String(query.q ?? '')
+      .trim()
+      .toLowerCase();
+    const filtered = routes.filter((route) => {
+      if (route.archivedAt) return false;
+      if (query.owner && query.owner !== 'all' && route.owner !== query.owner) return false;
+      if (query.stage && route.stage !== query.stage) return false;
+      if (
+        query.due === 'overdue' &&
+        (!route.dueDate || route.dueDate >= today || ['Won', 'Dead / no route'].includes(route.stage))
+      )
+        return false;
+      if (query.due === 'unscheduled' && route.dueDate && route.nextAction) return false;
+      if (query.source === 'imported' && !route.sourceIdentityKey) return false;
+      if (!search) return true;
+      return [
+        route.companyName,
+        peopleById.get(route.targetPersonId)?.name,
+        peopleById.get(route.mutualPersonId)?.name,
+        route.nextAction,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(search);
+    });
+    const limit = Math.min(200, Math.max(1, Number(query.limit) || 100));
+    const start = query.cursor ? Math.max(0, filtered.findIndex((route) => route.id === query.cursor) + 1) : 0;
+    const items = filtered.slice(start, start + limit);
+    return {
+      items,
+      total: filtered.length,
+      nextCursor: start + items.length < filtered.length ? (items.at(-1)?.id ?? null) : null,
+    };
+  });
+
   app.post('/api/routes', async (request, reply) => {
     const context = request.requestContext!;
     const [companies, people, routes] = await Promise.all([
@@ -473,10 +625,7 @@ export async function createApp(options: AppOptions) {
         new Error('Stage, outcome and relationship references must be changed through audited route actions'),
         { statusCode: 400, code: 'AUDITED_ACTION_REQUIRED' },
       );
-    const [routes, activities] = await Promise.all([
-      options.repository.list('routes', context.workspaceId),
-      options.repository.list('activities', context.workspaceId),
-    ]);
+    const routes = await options.repository.list('routes', context.workspaceId);
     const index = routes.findIndex((route) => route.id === (request.params as { id: string }).id);
     if (index < 0) throw new RecordNotFoundError((request.params as { id: string }).id);
     const current = routes[index]!;
@@ -494,7 +643,7 @@ export async function createApp(options: AppOptions) {
       previousState: { owner: current.owner, dueDate: current.dueDate, nextAction: current.nextAction },
       resultingState: { owner: updated.owner, dueDate: updated.dueDate, nextAction: updated.nextAction },
     });
-    await options.repository.transaction({ routes, activities: [...activities, activity] });
+    await options.repository.upsertTransaction({ routes: [updated], activities: [activity] });
     return { route: updated, activity };
   });
 
@@ -543,32 +692,48 @@ export async function createApp(options: AppOptions) {
 
   app.post('/api/routes/bulk/actions', async (request) => {
     const context = request.requestContext!;
-    const body = request.body as { routeIds?: string[]; owner?: string; dueDate?: string; nextAction?: string };
+    const body = request.body as {
+      routeIds?: string[];
+      action?: string;
+      owner?: string;
+      dueDate?: string;
+      nextAction?: string;
+    };
     if (!Array.isArray(body.routeIds) || !body.routeIds.length)
       throw Object.assign(new Error('routeIds must contain at least one route'), {
         statusCode: 400,
         code: 'BAD_INPUT',
       });
-    const [routes, activities] = await Promise.all([
-      options.repository.list('routes', context.workspaceId),
-      options.repository.list('activities', context.workspaceId),
-    ]);
+    const routes = await options.repository.list('routes', context.workspaceId);
     const ids = new Set(body.routeIds);
     if (routes.filter((route) => ids.has(route.id) && !route.archivedAt).length !== ids.size)
       throw new RecordNotFoundError('One or more selected routes');
     const now = new Date().toISOString();
-    const changed = routes.map((route) =>
-      ids.has(route.id)
-        ? routeSchema.parse({
-            ...route,
-            ...(body.owner !== undefined ? { owner: body.owner } : {}),
-            ...(body.dueDate !== undefined ? { dueDate: body.dueDate } : {}),
-            ...(body.nextAction !== undefined ? { nextAction: body.nextAction } : {}),
-            updatedAt: now,
-            version: route.version + 1,
-          })
-        : route,
-    );
+    if (body.action && body.action !== 'reset')
+      throw Object.assign(new Error('Unsupported bulk route action'), { statusCode: 400, code: 'BAD_INPUT' });
+    const reset = body.action === 'reset';
+    const changed = routes.map((route) => {
+      if (!ids.has(route.id)) return route;
+      return routeSchema.parse({
+        ...route,
+        ...(reset
+          ? {
+              owner: 'unassigned',
+              stage: 'Found route',
+              outcome: 'pending',
+              confidence: 'emerging',
+              dueDate: '',
+              nextAction: '',
+            }
+          : {
+              ...(body.owner !== undefined ? { owner: body.owner } : {}),
+              ...(body.dueDate !== undefined ? { dueDate: body.dueDate } : {}),
+              ...(body.nextAction !== undefined ? { nextAction: body.nextAction } : {}),
+            }),
+        updatedAt: now,
+        version: route.version + 1,
+      });
+    });
     const activityRecords = changed
       .filter((route) => ids.has(route.id))
       .map((route) =>
@@ -576,24 +741,42 @@ export async function createApp(options: AppOptions) {
           id: `activity-${randomUUID()}`,
           route: route as never,
           actor: context.actor,
-          type: 'edit',
-          summary: 'Route assignment and schedule updated',
+          type: reset ? 'reset' : 'edit',
+          summary: reset ? 'Route workflow reset to Found route' : 'Route assignment and schedule updated',
           now,
-          resultingState: { owner: route.owner, dueDate: route.dueDate, nextAction: route.nextAction },
+          previousState: (() => {
+            const previous = routes.find((item) => item.id === route.id)!;
+            return {
+              owner: previous.owner,
+              stage: previous.stage,
+              confidence: previous.confidence,
+              outcome: previous.outcome,
+              dueDate: previous.dueDate,
+              nextAction: previous.nextAction,
+              notes: previous.notes,
+            };
+          })(),
+          resultingState: {
+            owner: route.owner,
+            stage: route.stage,
+            confidence: route.confidence,
+            outcome: route.outcome,
+            dueDate: route.dueDate,
+            nextAction: route.nextAction,
+            notes: route.notes,
+          },
         }),
       );
-    await options.repository.transaction({ routes: changed, activities: [...activities, ...activityRecords] });
-    return { routes: changed.filter((route) => ids.has(route.id)), activities: activityRecords };
+    const selectedRoutes = changed.filter((route) => ids.has(route.id));
+    await options.repository.upsertTransaction({ routes: selectedRoutes, activities: activityRecords });
+    return { routes: selectedRoutes, activities: activityRecords };
   });
 
   app.post('/api/routes/:id/actions', async (request) => {
     const context = request.requestContext!;
     const routeId = (request.params as { id: string }).id;
     const body = request.body as Record<string, unknown>;
-    const [routes, activities] = await Promise.all([
-      options.repository.list('routes', context.workspaceId),
-      options.repository.list('activities', context.workspaceId),
-    ]);
+    const routes = await options.repository.list('routes', context.workspaceId);
     const index = routes.findIndex((route) => route.id === routeId && !route.archivedAt);
     if (index < 0) throw new RecordNotFoundError(routeId);
     const current = routes[index]!;
@@ -607,6 +790,12 @@ export async function createApp(options: AppOptions) {
       notes: current.notes,
     };
     const action = String(body.action ?? '');
+    const requestedStage = action === 'move_stage' ? routeStageSchema.parse(body.stage) : undefined;
+    if (requestedStage === 'Won' || requestedStage === 'Dead / no route')
+      throw Object.assign(new Error('Won and Dead require a confirmed terminal action with a reason'), {
+        statusCode: 400,
+        code: 'TERMINAL_ACTION_REQUIRED',
+      });
     const actionMap: Record<string, { stage?: string; outcome?: string; type: string; summary: string }> = {
       intro_requested: { stage: 'Intro requested', type: 'intro_requested', summary: 'Introduction requested' },
       intro_agreed: { stage: 'Intro agreed', type: 'intro_agreed', summary: 'Introduction agreed' },
@@ -617,22 +806,42 @@ export async function createApp(options: AppOptions) {
       call_mutual: { type: 'call', summary: 'Logged a call to the mutual contact' },
       message_mutual: { type: 'email', summary: 'Logged a message to the mutual contact' },
       move_stage: {
-        stage: String(body.stage ?? ''),
-        type: 'edit',
-        summary: `Route moved to ${String(body.stage ?? '')}`,
+        ...(requestedStage ? { stage: requestedStage } : {}),
+        type: 'move_stage',
+        summary: `Route moved to ${requestedStage}`,
       },
+      reset: { type: 'reset', summary: 'Route workflow reset to Found route' },
     };
     const definition = actionMap[action];
     if (!definition) throw Object.assign(new Error('Unsupported route action'), { statusCode: 400, code: 'BAD_INPUT' });
     if (['mark_won', 'mark_dead'].includes(action) && !String(body.reason ?? '').trim())
       throw Object.assign(new Error('A reason is required'), { statusCode: 400, code: 'BAD_INPUT' });
+    const interaction = ['call_mutual', 'message_mutual'].includes(action)
+      ? interactionSchema.parse(body.interaction)
+      : undefined;
+    if (interaction && ![current.targetPersonId, current.mutualPersonId].includes(interaction.contactPersonId))
+      throw new DomainValidationError('Interaction contact must belong to this route', 'interaction.contactPersonId');
     const now = new Date().toISOString();
     const updated = {
       ...current,
+      ...(action === 'reset'
+        ? {
+            owner: 'unassigned',
+            stage: 'Found route',
+            confidence: 'emerging',
+            outcome: 'pending',
+            dueDate: '',
+            nextAction: '',
+          }
+        : {}),
       ...(definition.stage ? { stage: definition.stage } : {}),
       ...(definition.outcome ? { outcome: definition.outcome } : {}),
-      ...(body.nextAction !== undefined ? { nextAction: String(body.nextAction) } : {}),
-      ...(body.followUpDate !== undefined ? { dueDate: String(body.followUpDate) } : {}),
+      ...(interaction
+        ? { nextAction: interaction.nextAction, dueDate: interaction.followUpDate ?? '' }
+        : {
+            ...(body.nextAction !== undefined ? { nextAction: String(body.nextAction) } : {}),
+            ...(body.followUpDate !== undefined ? { dueDate: String(body.followUpDate) } : {}),
+          }),
       updatedAt: now,
       version: current.version + 1,
     };
@@ -654,11 +863,12 @@ export async function createApp(options: AppOptions) {
       now,
       previousState,
       resultingState,
-      details: String(body.details ?? ''),
+      details: interaction ? interaction.notes || interaction.outcome : String(body.details ?? ''),
       reason: String(body.reason ?? ''),
+      ...(interaction ? { occurredAt: interaction.occurredAt, interaction } : {}),
     });
     routes[index] = updated as never;
-    await options.repository.transaction({ routes, activities: [...activities, activity] });
+    await options.repository.upsertTransaction({ routes: [updated as never], activities: [activity] });
     return { route: updated, activity };
   });
 
@@ -673,7 +883,7 @@ export async function createApp(options: AppOptions) {
     if (routeIndex < 0) throw new RecordNotFoundError(id);
     const source = activities.find((activity) => activity.id === activityId && activity.routeId === id) as
       ((typeof activities)[number] & { previousState?: Record<string, unknown> }) | undefined;
-    if (!source?.previousState || Date.now() - Date.parse(source.timestamp) > 30_000)
+    if (!source?.previousState || Date.now() - Date.parse(source.timestamp) > 5 * 60_000)
       throw Object.assign(new Error('Undo is no longer available for this action'), {
         statusCode: 409,
         code: 'UNDO_EXPIRED',
@@ -698,9 +908,9 @@ export async function createApp(options: AppOptions) {
       resultingState: source.previousState,
     });
     routes[routeIndex] = restored as never;
-    await options.repository.transaction({
-      routes,
-      activities: [...activities, { ...undoActivity, undoOfActivityId: source.id }],
+    await options.repository.upsertTransaction({
+      routes: [restored as never],
+      activities: [{ ...undoActivity, undoOfActivityId: source.id }],
     });
     return { route: restored, activity: { ...undoActivity, undoOfActivityId: source.id } };
   });
@@ -709,10 +919,7 @@ export async function createApp(options: AppOptions) {
     const context = request.requestContext!;
     const { id, archiveAction } = request.params as { id: string; archiveAction: string };
     if (!['archive', 'restore'].includes(archiveAction)) throw new RecordNotFoundError(id);
-    const [routes, activities] = await Promise.all([
-      options.repository.list('routes', context.workspaceId),
-      options.repository.list('activities', context.workspaceId),
-    ]);
+    const routes = await options.repository.list('routes', context.workspaceId);
     const index = routes.findIndex((route) => route.id === id);
     if (index < 0) throw new RecordNotFoundError(id);
     const current = routes[index]!;
@@ -744,7 +951,7 @@ export async function createApp(options: AppOptions) {
       now,
       reason: archiveAction === 'archive' ? String((request.body as { reason?: string }).reason) : '',
     });
-    await options.repository.transaction({ routes, activities: [...activities, activity] });
+    await options.repository.upsertTransaction({ routes: [updated as never], activities: [activity] });
     return { route: updated, activity };
   });
 
@@ -752,10 +959,9 @@ export async function createApp(options: AppOptions) {
     const context = request.requestContext!;
     const { id, archiveAction } = request.params as { id: string; archiveAction: string };
     if (!['archive', 'restore'].includes(archiveAction)) throw new RecordNotFoundError(id);
-    const [people, routes, activities] = await Promise.all([
+    const [people, routes] = await Promise.all([
       options.repository.list('people', context.workspaceId),
       options.repository.list('routes', context.workspaceId),
-      options.repository.list('activities', context.workspaceId),
     ]);
     const index = people.findIndex((person) => person.id === id);
     if (index < 0) throw new RecordNotFoundError(id);
@@ -815,7 +1021,7 @@ export async function createApp(options: AppOptions) {
         reason,
       }),
     );
-    await options.repository.transaction({ people, routes, activities: [...activities, ...audit] });
+    await options.repository.upsertTransaction({ people: [people[index]!], routes: affected, activities: audit });
     return { person: people[index], routes: affected, activities: audit };
   });
 
@@ -823,11 +1029,10 @@ export async function createApp(options: AppOptions) {
     const context = request.requestContext!;
     const { id, archiveAction } = request.params as { id: string; archiveAction: string };
     if (!['archive', 'restore'].includes(archiveAction)) throw new RecordNotFoundError(id);
-    const [companies, people, routes, activities] = await Promise.all([
+    const [companies, people, routes] = await Promise.all([
       options.repository.list('companies', context.workspaceId),
       options.repository.list('people', context.workspaceId),
       options.repository.list('routes', context.workspaceId),
-      options.repository.list('activities', context.workspaceId),
     ]);
     const index = companies.findIndex((company) => company.id === id);
     if (index < 0) throw new RecordNotFoundError(id);
@@ -853,10 +1058,11 @@ export async function createApp(options: AppOptions) {
             ),
           )
     ) as never;
+    const affectedPeople: typeof people = [];
     for (let personIndex = 0; personIndex < people.length; personIndex++) {
       const person = people[personIndex]!;
       if (person.companyId !== id) continue;
-      if (archiveAction === 'archive' && !person.archivedAt)
+      if (archiveAction === 'archive' && !person.archivedAt) {
         people[personIndex] = {
           ...person,
           archivedAt: now,
@@ -865,12 +1071,16 @@ export async function createApp(options: AppOptions) {
           archiveOperationId: operationId,
           version: person.version + 1,
         } as never;
-      if (archiveAction === 'restore' && person.archiveOperationId === operationId)
+        affectedPeople.push(people[personIndex]!);
+      }
+      if (archiveAction === 'restore' && person.archiveOperationId === operationId) {
         people[personIndex] = Object.fromEntries(
           Object.entries({ ...person, version: person.version + 1 }).filter(
             ([key]) => !['archivedAt', 'archivedBy', 'archiveReason', 'archiveOperationId'].includes(key),
           ),
         ) as never;
+        affectedPeople.push(people[personIndex]!);
+      }
     }
     const affected: typeof routes = [];
     for (let routeIndex = 0; routeIndex < routes.length; routeIndex++) {
@@ -907,10 +1117,15 @@ export async function createApp(options: AppOptions) {
         reason,
       }),
     );
-    await options.repository.transaction({ companies, people, routes, activities: [...activities, ...audit] });
+    await options.repository.upsertTransaction({
+      companies: [companies[index]!],
+      people: affectedPeople,
+      routes: affected,
+      activities: audit,
+    });
     return {
       company: companies[index],
-      people: people.filter((person) => person.companyId === id),
+      people: affectedPeople,
       routes: affected,
       activities: audit,
     };
@@ -928,10 +1143,9 @@ export async function createApp(options: AppOptions) {
         statusCode: 400,
         code: 'BAD_INPUT',
       });
-    const [people, routes, activities] = await Promise.all([
+    const [people, routes] = await Promise.all([
       options.repository.list('people', context.workspaceId),
       options.repository.list('routes', context.workspaceId),
-      options.repository.list('activities', context.workspaceId),
     ]);
     const survivorIndex = people.findIndex((person) => person.id === survivorId && !person.archivedAt);
     const sourceIndex = people.findIndex((person) => person.id === sourceId && !person.archivedAt);
@@ -964,18 +1178,45 @@ export async function createApp(options: AppOptions) {
       updatedAt: now,
       version: source.version + 1,
     } as never;
-    for (let index = 0; index < people.length; index++)
+    const changedPeople = new Map<string, (typeof people)[number]>([
+      [survivorId, people[survivorIndex]!],
+      [sourceId, people[sourceIndex]!],
+    ]);
+    for (let index = 0; index < people.length; index++) {
+      const person = people[index]!;
+      const mutualPersonIds = person.mutualPersonIds
+        .map((personId) => (personId === sourceId ? survivorId : personId))
+        .filter((value, itemIndex, all) => all.indexOf(value) === itemIndex && value !== person.id);
+      if (JSON.stringify(mutualPersonIds) === JSON.stringify(person.mutualPersonIds)) continue;
+      const alreadyChanged = changedPeople.has(person.id);
       people[index] = {
-        ...people[index]!,
-        mutualPersonIds: people[index]!.mutualPersonIds.map((personId) =>
-          personId === sourceId ? survivorId : personId,
-        ).filter((value, itemIndex, all) => all.indexOf(value) === itemIndex),
+        ...person,
+        mutualPersonIds,
+        updatedAt: now,
+        version: alreadyChanged ? person.version : person.version + 1,
       };
-    const rewritten = routes.map((route) => ({
-      ...route,
-      targetPersonId: route.targetPersonId === sourceId ? survivorId : route.targetPersonId,
-      mutualPersonId: route.mutualPersonId === sourceId ? survivorId : route.mutualPersonId,
-    }));
+      changedPeople.set(person.id, people[index]!);
+    }
+    const changedRoutes: typeof routes = [];
+    const rewritten = routes.map((route) => {
+      const targetPersonId = route.targetPersonId === sourceId ? survivorId : route.targetPersonId;
+      const mutualPersonId = route.mutualPersonId === sourceId ? survivorId : route.mutualPersonId;
+      if (targetPersonId === mutualPersonId)
+        throw Object.assign(new Error('Merge would make a person both ends of the same route'), {
+          statusCode: 409,
+          code: 'MERGE_SELF_ROUTE',
+        });
+      if (targetPersonId === route.targetPersonId && mutualPersonId === route.mutualPersonId) return route;
+      const changed = {
+        ...route,
+        targetPersonId,
+        mutualPersonId,
+        updatedAt: now,
+        version: route.version + 1,
+      };
+      changedRoutes.push(changed);
+      return changed;
+    });
     const activeKeys = new Set<string>();
     for (const route of rewritten.filter(
       (item) => !item.archivedAt && !['Won', 'Dead / no route'].includes(item.stage),
@@ -1001,7 +1242,11 @@ export async function createApp(options: AppOptions) {
       workspaceId: context.workspaceId,
       version: 1,
     };
-    await options.repository.transaction({ people, routes: rewritten, activities: [...activities, mergeActivity] });
+    await options.repository.upsertTransaction({
+      people: [...changedPeople.values()],
+      routes: changedRoutes,
+      activities: [mergeActivity],
+    });
     return { survivor: people[survivorIndex], source: people[sourceIndex] };
   });
 

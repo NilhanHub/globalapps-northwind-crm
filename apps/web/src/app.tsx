@@ -10,7 +10,7 @@ import { LoginPage } from './pages/login-page';
 import { EntityDialog, type EntityDialogKind } from './components/entity-dialog';
 import { ApiError } from '@northwind/api-client';
 import { queryClient } from './query-client';
-import { useBootstrapQuery, queryKeys } from './queries';
+import { useBootstrapQuery, queryKeys, useWorkspaceRevisionQuery } from './queries';
 
 const CompaniesPage = lazy(() =>
   import('./pages/companies-page').then((module) => ({ default: module.CompaniesPage })),
@@ -28,6 +28,7 @@ const DashboardPage = lazy(() =>
 );
 const ProcessPage = lazy(() => import('./pages/process-page').then((module) => ({ default: module.ProcessPage })));
 const ArchivedPage = lazy(() => import('./pages/archived-page').then((module) => ({ default: module.ArchivedPage })));
+const ImportsPage = lazy(() => import('./pages/imports-page').then((module) => ({ default: module.ImportsPage })));
 
 function WorkspaceLoading() {
   return (
@@ -85,6 +86,7 @@ function Workspace({ data }: { data: BootstrapData }) {
   const [dialog, setDialog] = useState<EntityDialogKind>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const revision = useWorkspaceRevisionQuery(true, data.workspaceRevision?.revision ?? '');
   async function create(kind: Exclude<EntityDialogKind, null>, values: Record<string, unknown>) {
     setBusy(true);
     setError('');
@@ -104,6 +106,18 @@ function Workspace({ data }: { data: BootstrapData }) {
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.all });
   return (
     <AppShell>
+      <div
+        className={`freshness-indicator${revision.isFetching ? ' is-refreshing' : ''}`}
+        role="status"
+        aria-live="polite"
+      >
+        <span aria-hidden="true" />
+        {revision.isFetching
+          ? 'Checking cloud changes…'
+          : revision.isError
+            ? 'Cloud freshness check delayed'
+            : 'Cloud data is current'}
+      </div>
       <Suspense fallback={<WorkspaceLoading />}>
         <Routes>
           <Route
@@ -146,6 +160,7 @@ function Workspace({ data }: { data: BootstrapData }) {
           />
           <Route path="/process" element={<ProcessPage />} />
           <Route path="/archived" element={<ArchivedPage {...data} onRefresh={refresh} />} />
+          <Route path="/imports" element={<ImportsPage />} />
           <Route path="*" element={<Navigate to="/companies" replace />} />
         </Routes>
       </Suspense>

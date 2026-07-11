@@ -81,6 +81,9 @@ export function createFirestoreRestMigrationRepository(options: {
     async healthCheck() {
       await request(`${collectionUrl('default', 'companies')}?pageSize=1`);
     },
+    async getWorkspaceRevision() {
+      return { revision: 'migration-only', updatedAt: '' };
+    },
     async list<S extends StoreName>(store: S, workspaceId: string): Promise<StoreRecord<S>[]> {
       const records: StoreRecord<S>[] = [];
       let pageToken = '';
@@ -114,6 +117,9 @@ export function createFirestoreRestMigrationRepository(options: {
       throw new Error('The migration-only REST repository cannot update records');
     },
     async transaction() {
+      throw new Error('The migration-only REST repository cannot run application transactions');
+    },
+    async upsertTransaction() {
       throw new Error('The migration-only REST repository cannot run application transactions');
     },
     async delete() {

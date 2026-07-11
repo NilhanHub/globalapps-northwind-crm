@@ -1,6 +1,14 @@
 # Data migration and recovery
 
-`npm run data:migrate` copies the root stores into `data/`. `npm run data:migrate:firestore` performs a cloud dry run with counts and SHA-256 hashes; the `:apply` command creates only missing records and refuses to replace a differing record. Both operations are idempotent and never delete the root stores.
+`npm run data:migrate` and `npm run data:migrate:firestore` are one-time migration tools for the original JSON stores. They are not production backup or release-verification commands. Both operations are idempotent, never delete the root stores, and the Firestore apply command creates only missing records while refusing to replace a differing record.
+
+Use the current-data commands for routine operations:
+
+- `npm run data:integrity` audits live references, normalized identities, duplicates, versions, archive state and workspace scope without writing.
+- `npm run data:export:firestore` creates a timestamped export with per-store JSON, IDs, canonical SHA-256 hashes, schema metadata and an integrity report.
+- `npm run data:verify-export -- <export-directory>` revalidates the export before it is considered recoverable.
+
+Quarterly recovery drills restore a verified export or managed backup into a separate temporary Firestore database. Production must never be the first restore target.
 
 Mutations are serialized. Multi-store changes write temporary files and a recovery journal before renames. On startup the JSON adapter recovers an incomplete journal. Before replacement, timestamped store backups are rotated under the data directory.
 

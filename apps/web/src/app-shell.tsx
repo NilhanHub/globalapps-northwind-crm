@@ -1,5 +1,5 @@
 import { useEffect, useState, type PropsWithChildren } from 'react';
-import { Building2, Gauge, LogOut, Network, Route, Search, UsersRound } from 'lucide-react';
+import { Building2, FileUp, Gauge, LogOut, Network, Route, Search, UsersRound } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Dialog, IconButton } from '@northwind/ui';
 import { useAuth } from './auth';
@@ -10,6 +10,7 @@ const items = [
   { to: '/routes', label: 'Routes', icon: Route },
   { to: '/dashboard', label: 'Dashboard', icon: Gauge },
   { to: '/process', label: 'Process', icon: Network },
+  { to: '/imports', label: 'Imports', icon: FileUp },
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
