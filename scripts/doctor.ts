@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createConnection } from 'node:net';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { resolveFirestoreDatabaseId } from '../apps/api/src/firebase.js';
 
 type Check = { name: string; status: 'pass' | 'warn' | 'fail'; detail: string };
 
@@ -29,6 +30,20 @@ checks.push({
   status: major === 22 ? 'pass' : 'fail',
   detail: major === 22 ? `Node ${process.versions.node}` : `Node 22 required; found ${process.versions.node}`,
 });
+if (process.env.CRM_REPOSITORY === 'firestore') {
+  let databaseId = '(default)';
+  let validDatabaseId = true;
+  try {
+    databaseId = resolveFirestoreDatabaseId(process.env.CRM_FIRESTORE_DATABASE_ID);
+  } catch {
+    validDatabaseId = false;
+  }
+  checks.push({
+    name: 'firestore-database',
+    status: validDatabaseId ? 'pass' : 'fail',
+    detail: validDatabaseId ? databaseId : 'invalid database ID',
+  });
+}
 checks.push({
   name: 'npm-lock',
   status: existsSync(resolve('package-lock.json')) ? 'pass' : 'fail',

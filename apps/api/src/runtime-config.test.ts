@@ -27,4 +27,31 @@ describe('repository runtime configuration', () => {
       }),
     ).toMatchObject({ mode: 'firestore', projectId: 'globalapps-northwind-crm' });
   });
+
+  it('defaults Firestore to the default database and accepts an explicit named database', () => {
+    const base = {
+      CRM_REPOSITORY: 'firestore',
+      CRM_CLOUD_OWNER_EMAIL: 'nilhan.dev@gmail.com',
+      FIREBASE_PROJECT_ID: 'globalapps-northwind-crm',
+    };
+
+    expect(resolveRepositoryConfig(base)).toMatchObject({ databaseId: '(default)' });
+    expect(resolveRepositoryConfig({ ...base, CRM_FIRESTORE_DATABASE_ID: 'restore-verification' })).toMatchObject({
+      databaseId: 'restore-verification',
+    });
+  });
+
+  it('rejects unsafe Firestore database IDs before constructing the repository', () => {
+    const base = {
+      CRM_REPOSITORY: 'firestore',
+      CRM_CLOUD_OWNER_EMAIL: 'nilhan.dev@gmail.com',
+      FIREBASE_PROJECT_ID: 'globalapps-northwind-crm',
+    };
+
+    for (const databaseId of ['bad/path', 'UPPERCASE', 'abc', 'starts-ok-but-ends-']) {
+      expect(() => resolveRepositoryConfig({ ...base, CRM_FIRESTORE_DATABASE_ID: databaseId })).toThrow(
+        /CRM_FIRESTORE_DATABASE_ID/,
+      );
+    }
+  });
 });

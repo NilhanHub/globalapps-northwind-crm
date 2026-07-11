@@ -75,7 +75,9 @@ if (backupConfigured) {
   const relativeToRepository = relative(root, resolve(backupDirectory));
   if (!relativeToRepository.startsWith('..') && !isAbsolute(relativeToRepository))
     throw new Error('CRM_HOSTINGER_BACKUP_DIR must be outside the repository and deployment directory');
-  createPublicKey(backupPublicKeyPem);
+  const backupPublicKey = createPublicKey(backupPublicKeyPem);
+  if (backupPublicKey.asymmetricKeyType !== 'rsa' || (backupPublicKey.asymmetricKeyDetails?.modulusLength ?? 0) < 4096)
+    throw new Error('CRM_BACKUP_PUBLIC_KEY_BASE64 must contain an RSA-4096 or stronger public key');
 }
 const releaseVersion = process.env.CRM_APP_VERSION?.trim() || '2.0.0';
 const releaseCommit = process.env.CRM_COMMIT_SHA?.trim() || 'unknown';
@@ -87,6 +89,7 @@ const firestore =
   repositoryConfig.mode === 'firestore'
     ? createFirebaseFirestore({
         projectId: repositoryConfig.projectId,
+        databaseId: repositoryConfig.databaseId,
         ...(repositoryConfig.serviceAccountBase64
           ? { serviceAccountBase64: repositoryConfig.serviceAccountBase64 }
           : {}),
@@ -123,6 +126,7 @@ const app = await createApp({
     commitSha: releaseCommit,
     buildTime: releaseBuildTime,
     repositoryType: repositoryConfig.mode,
+    repositoryDatabaseId: repositoryConfig.mode === 'firestore' ? repositoryConfig.databaseId : null,
   },
 });
 

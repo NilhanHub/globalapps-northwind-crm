@@ -7,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -14,7 +15,13 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { companySchema, personSchema, routeSchema } from '@northwind/domain';
 import { createJsonRepository } from '../repositories/json-repository.js';
-import { decryptBackup, runHostingerBackup, validateBackupBundle, verifyBackupEnvelope } from './hostinger-backup.js';
+import {
+  decryptBackup,
+  isStrongBackupTriggerToken,
+  runHostingerBackup,
+  validateBackupBundle,
+  verifyBackupEnvelope,
+} from './hostinger-backup.js';
 
 const dirs: string[] = [];
 afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
@@ -71,6 +78,12 @@ async function fixture() {
 }
 
 describe('encrypted Hostinger backups', () => {
+  it('accepts only generated-token-shaped trigger values', () => {
+    expect(isStrongBackupTriggerToken('short-token')).toBe(false);
+    expect(isStrongBackupTriggerToken('A'.repeat(43))).toBe(true);
+    expect(isStrongBackupTriggerToken(`${'A'.repeat(42)}!`)).toBe(false);
+  });
+
   it('retains two successful encrypted copies and decrypts a validated bundle', async () => {
     const state = await fixture();
     for (const day of [1, 2, 3])
@@ -87,6 +100,7 @@ describe('encrypted Hostinger backups', () => {
     expect(files[0]).toContain('2026-07-02');
     const envelope = JSON.parse(readFileSync(join(state.backups, files[1]!), 'utf8'));
     expect(verifyBackupEnvelope(envelope).format).toBe('northwind-encrypted-backup');
+    expect(verifyBackupEnvelope(envelope).version).toBe(2);
     const bundle = decryptBackup(envelope, state.privateKey) as { stores: { companies: unknown[]; routes: unknown[] } };
     expect(bundle.stores.companies).toHaveLength(1);
     expect(bundle.stores.routes).toHaveLength(1);
@@ -121,5 +135,64 @@ describe('encrypted Hostinger backups', () => {
     expect(() => verifyBackupEnvelope(envelope)).toThrow(/corrupted/);
     delete envelope.iv;
     expect(() => verifyBackupEnvelope(envelope)).toThrow(/corrupted/);
+  });
+
+  it('authenticates envelope metadata before accepting decrypted content', async () => {
+    const state = await fixture();
+    await runHostingerBackup({ repository: state.repository, directory: state.backups, publicKeyPem: state.publicKey });
+    const file = readdirSync(state.backups).find((name) => name.endsWith('.nwbackup'))!;
+    const envelope = JSON.parse(readFileSync(join(state.backups, file), 'utf8'));
+    envelope.workspaceId = 'tampered-workspace';
+    expect(() => decryptBackup(envelope, state.privateKey)).toThrow();
+  });
+
+  it('recovers an old malformed crash lock but preserves a fresh competing lock', async () => {
+    const state = await fixture();
+    const lockPath = join(state.backups, '.backup.lock');
+    await runHostingerBackup({ repository: state.repository, directory: state.backups, publicKeyPem: state.publicKey });
+    writeFileSync(lockPath, 'malformed');
+    const old = new Date(Date.now() - 21 * 60_000);
+    utimesSync(lockPath, old, old);
+    await expect(
+      runHostingerBackup({ repository: state.repository, directory: state.backups, publicKeyPem: state.publicKey }),
+    ).resolves.toMatchObject({ ok: true });
+  });
+
+  it('refuses to publish an archive after the whole-operation deadline', async () => {
+    const state = await fixture();
+    const originalList = state.repository.list.bind(state.repository);
+    state.repository.list = async (...args) => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      return originalList(...args);
+    };
+    await expect(
+      runHostingerBackup({
+        repository: state.repository,
+        directory: state.backups,
+        publicKeyPem: state.publicKey,
+        maxDurationMs: 5,
+      }),
+    ).rejects.toThrow(/execution limit/);
+    expect(readdirSync(state.backups).filter((name) => name.endsWith('.nwbackup'))).toHaveLength(0);
+  });
+
+  it('refuses a backup when the workspace revision changes across both read attempts', async () => {
+    const state = await fixture();
+    let revision = 0;
+    let listCalls = 0;
+    const originalList = state.repository.list.bind(state.repository);
+    state.repository.getWorkspaceRevision = async () => ({
+      revision: `revision-${++revision}`,
+      updatedAt: new Date().toISOString(),
+    });
+    state.repository.list = async (...args) => {
+      listCalls += 1;
+      return originalList(...args);
+    };
+    await expect(
+      runHostingerBackup({ repository: state.repository, directory: state.backups, publicKeyPem: state.publicKey }),
+    ).rejects.toMatchObject({ code: 'BACKUP_SNAPSHOT_CHANGED', statusCode: 409 });
+    expect(listCalls).toBe(14);
+    expect(readdirSync(state.backups).filter((name) => name.endsWith('.nwbackup'))).toHaveLength(0);
   });
 });

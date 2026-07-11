@@ -47,6 +47,13 @@ data/.crm-sessions.json
 data/.crm-transaction.json
 data/*.json
 data/.backups/
+*.nwbackup
+*.pem
+*.key
+*.private
+*.decrypted.json
+.backup-keys/
+private-backups/
 
 # Local worktrees
 .worktrees/

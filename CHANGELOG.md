@@ -6,7 +6,11 @@
 - Added configurable owner profiles with idempotent route migration, protected Unassigned handling and atomic reassignment.
 - Added server-derived shared reminders, audited snooze/clear/complete/reschedule actions and a responsive reminder centre.
 - Added opaque cursor pagination, server-derived route metrics, normalized prefix search and query-key migration.
-- Added RSA-OAEP/AES-GCM Hostinger recovery archives with validated manifests, exclusive locking and two-copy retention.
+- Added RSA-OAEP/AES-GCM Hostinger recovery archives with authenticated version-2 metadata, validated manifests, recoverable locking, whole-run deadlines and two-copy retention.
+- Added a dependency-free Hostinger cron runner, non-printing 256-bit trigger generator and sanitized backup-freshness diagnostics.
+- Added guarded, resumable restore into an explicit named temporary Firestore database and runtime support for isolated named-database verification.
+- Hardened responsive evidence capture to wait for real workspaces, cover every primary page and breakpoint, run accessibility checks and fail on console, network or overflow defects.
+- Fixed People table assistive text escaping its scroll container at tablet and mobile widths.
 - Added normalized identity integrity checks, focused owner/page/reminder API modules and expanded emulator/browser coverage.
 
 ## 2.1.0 - 2026-07-10

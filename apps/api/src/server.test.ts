@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync, randomBytes } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createAuthService, hashPassword } from './auth/auth-service.js';
 import { createJsonRepository } from './repositories/json-repository.js';
@@ -10,7 +10,13 @@ import { createApp } from './server.js';
 const dirs: string[] = [];
 afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 
-async function fixture(options: { now?: () => Date; repositoryUnavailable?: boolean } = {}) {
+async function fixture(
+  options: {
+    now?: () => Date;
+    repositoryUnavailable?: boolean;
+    backup?: { directory: string; publicKeyPem: string; triggerTokenHash: string };
+  } = {},
+) {
   const dir = mkdtempSync(join(tmpdir(), 'northwind-api-'));
   dirs.push(dir);
   for (const name of ['companies', 'people', 'routes', 'activities']) writeFileSync(join(dir, `${name}.json`), '[]\n');
@@ -65,8 +71,9 @@ async function fixture(options: { now?: () => Date; repositoryUnavailable?: bool
       buildTime: '2026-07-11T00:00:00.000Z',
       repositoryType: 'json',
     },
+    ...(options.backup ? { backup: options.backup } : {}),
   });
-  return { app, repository };
+  return { app, repository, dir };
 }
 
 describe('modular API server', () => {
@@ -100,6 +107,59 @@ describe('modular API server', () => {
     const health = await app.inject({ method: 'GET', url: '/api/health' });
     expect(health.statusCode).toBe(503);
     expect(health.json()).toMatchObject({ error: { code: 'FIRESTORE_UNAVAILABLE' } });
+    await app.close();
+  });
+
+  it('reports backup freshness and accepts only strong dedicated trigger tokens', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'northwind-api-backup-'));
+    dirs.push(root);
+    const token = randomBytes(32).toString('base64url');
+    const { publicKey } = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    });
+    const { app } = await fixture({
+      backup: {
+        directory: join(root, 'archives'),
+        publicKeyPem: publicKey,
+        triggerTokenHash: createHash('sha256').update(token).digest('hex'),
+      },
+    });
+    const wrongToken = `${token[0] === 'A' ? 'B' : 'A'}${token.slice(1)}`;
+    expect((await app.inject({ method: 'GET', url: '/api/health' })).json()).toMatchObject({
+      backup: { enabled: true, state: 'missing', count: 0 },
+    });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/maintenance/backups/run',
+          headers: { 'x-backup-token': wrongToken },
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/maintenance/backups/run',
+          headers: { 'x-backup-token': token },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/api/health' })).json()).toMatchObject({
+      backup: { enabled: true, state: 'healthy', count: 1 },
+    });
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/maintenance/backups/run',
+          headers: { 'x-backup-token': token },
+        })
+      ).statusCode,
+    ).toBe(429);
     await app.close();
   });
 

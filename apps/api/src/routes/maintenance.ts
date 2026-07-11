@@ -2,13 +2,20 @@ import type { FastifyInstance } from 'fastify';
 import type { CrmRepository } from '../repositories/repository.js';
 import { createOpenApiDocument } from '@northwind/api-client';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { getHostingerBackupStatus, runHostingerBackup } from '../services/hostinger-backup.js';
+import {
+  getHostingerBackupStatus,
+  isStrongBackupTriggerToken,
+  runHostingerBackup,
+} from '../services/hostinger-backup.js';
+
+const BACKUP_STALE_AFTER_HOURS = 30;
 
 export type ReleaseMetadata = {
   version: string;
   commitSha: string;
   buildTime: string;
   repositoryType: 'json' | 'firestore';
+  repositoryDatabaseId?: string | null;
 };
 
 export function registerMaintenanceRoutes(
@@ -19,6 +26,28 @@ export function registerMaintenanceRoutes(
     backup?: { directory: string; publicKeyPem: string; triggerTokenHash: string };
   },
 ) {
+  const backupReadiness = () => {
+    if (!options.backup)
+      return { enabled: false, state: 'not_configured' as const, ready: false, count: 0, ageHours: null };
+    try {
+      const status = getHostingerBackupStatus(options.backup.directory);
+      const state =
+        status.count === 0
+          ? ('missing' as const)
+          : status.ageHours !== null && status.ageHours > BACKUP_STALE_AFTER_HOURS
+            ? ('stale' as const)
+            : ('healthy' as const);
+      return {
+        enabled: true,
+        state,
+        ready: state === 'healthy',
+        count: status.count,
+        ageHours: status.ageHours,
+      };
+    } catch {
+      return { enabled: true, state: 'invalid' as const, ready: false, count: 0, ageHours: null };
+    }
+  };
   const ready = async () => {
     await options.repository.healthCheck();
     return {
@@ -31,6 +60,8 @@ export function registerMaintenanceRoutes(
       commitSha: options.release?.commitSha ?? 'unknown',
       buildTime: options.release?.buildTime ?? 'unknown',
       repositoryType: options.release?.repositoryType ?? 'unknown',
+      repositoryDatabaseId: options.release?.repositoryDatabaseId ?? null,
+      backup: backupReadiness(),
     };
   };
   app.get('/api/live', async () => ({ status: 'ok', liveness: 'alive', time: new Date().toISOString() }));
@@ -67,15 +98,21 @@ export function registerMaintenanceRoutes(
       },
       configuration: {
         repository: options.release?.repositoryType ?? 'unknown',
+        databaseId: options.release?.repositoryDatabaseId ?? null,
         cloudOwnerPolicy: 'nilhan.dev@gmail.com',
+        backup: backupReadiness(),
         secrets: 'redacted',
       },
     };
   });
   app.get('/api/openapi.json', async () => createOpenApiDocument());
   app.get('/api/diagnostics/backups', async () => {
-    if (!options.backup) return { enabled: false, count: 0, latest: null };
-    return { enabled: true, ...getHostingerBackupStatus(options.backup.directory) };
+    if (!options.backup) return { ...backupReadiness(), latest: null, files: [] };
+    try {
+      return { ...backupReadiness(), ...getHostingerBackupStatus(options.backup.directory) };
+    } catch {
+      return { ...backupReadiness(), latest: null, files: [] };
+    }
   });
   app.post(
     '/api/maintenance/backups/run',
@@ -90,6 +127,10 @@ export function registerMaintenanceRoutes(
           },
         });
       const token = String(request.headers['x-backup-token'] ?? '');
+      if (!isStrongBackupTriggerToken(token))
+        return reply.status(401).send({
+          error: { code: 'BACKUP_TOKEN_INVALID', message: 'Backup authorization failed.', requestId: request.id },
+        });
       const presented = createHash('sha256').update(token).digest();
       const expected = Buffer.from(options.backup.triggerTokenHash, 'hex');
       if (!token || presented.length !== expected.length || !timingSafeEqual(presented, expected))

@@ -124,10 +124,12 @@ test('verified release breakpoints avoid unintended page overflow', async ({ pag
   await page.getByLabel('Username').fill('northwind-e2e');
   await page.getByLabel('Password').fill('northwind-e2e-passphrase');
   await page.getByRole('button', { name: 'Open Northwind' }).click();
-  for (const width of [1920, 1440, 1280, 768, 390]) {
-    await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
-    for (const path of ['/companies', '/people', '/routes', '/dashboard', '/process', '/imports', '/archived']) {
-      await page.goto(path);
+  for (const path of ['/companies', '/people', '/routes', '/dashboard', '/process', '/imports', '/archived']) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(path);
+    await page.locator('main h1').waitFor({ state: 'visible' });
+    for (const width of [1920, 1440, 1280, 768, 390]) {
+      await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
       const dimensions = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,
         client: document.documentElement.clientWidth,
