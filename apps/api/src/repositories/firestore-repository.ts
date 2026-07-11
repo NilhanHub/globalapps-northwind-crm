@@ -60,18 +60,26 @@ export function validateFirestoreTransition(
   return 'update';
 }
 
-function cloudError(error: unknown): never {
+export function translateFirestoreError(error: unknown): never {
   if (error instanceof VersionConflictError || error instanceof RecordNotFoundError) throw error;
-  const code = String((error as { code?: unknown })?.code ?? '');
-  if (
-    ['5', '10', '13', '14', 'deadline-exceeded', 'aborted', 'internal', 'unavailable'].some((item) =>
-      code.includes(item),
-    )
-  ) {
+  const code = String((error as { code?: unknown })?.code ?? '').toLowerCase();
+  const transientNumericCodes = new Set(['5', '8', '10', '13', '14']);
+  const transientNamedCodes = [
+    'deadline-exceeded',
+    'deadline_exceeded',
+    'resource-exhausted',
+    'resource_exhausted',
+    'aborted',
+    'internal',
+    'unavailable',
+  ];
+  if (transientNumericCodes.has(code) || transientNamedCodes.some((item) => code.includes(item))) {
     throw new FirestoreUnavailableError();
   }
   throw error;
 }
+
+const cloudError = translateFirestoreError;
 
 export function createFirestoreRepository(db: Firestore): CrmRepository {
   const doc = (workspaceId: string, store: StoreName, id: string) => {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { firestoreCollectionPath, sortFirestoreRecords, validateFirestoreTransition } from './firestore-repository.js';
-import { VersionConflictError } from './repository.js';
+import {
+  firestoreCollectionPath,
+  sortFirestoreRecords,
+  translateFirestoreError,
+  validateFirestoreTransition,
+} from './firestore-repository.js';
+import { FirestoreUnavailableError, VersionConflictError } from './repository.js';
 
 describe('Firestore repository safeguards', () => {
   it('scopes every collection below the selected workspace', () => {
@@ -46,5 +51,19 @@ describe('Firestore repository safeguards', () => {
       { id: 'm', timestamp: '2026-07-02T00:00:00.000Z' },
     ];
     expect(sortFirestoreRecords('activities', records).map((record) => record.id)).toEqual(['a', 'm', 'z']);
+  });
+
+  it.each([8, '8', 'RESOURCE_EXHAUSTED', 'resource-exhausted'])(
+    'maps Firestore quota error %s to a recoverable service-unavailable error',
+    (code) => {
+      expect(() => translateFirestoreError(Object.assign(new Error('Quota exceeded'), { code }))).toThrow(
+        FirestoreUnavailableError,
+      );
+    },
+  );
+
+  it('does not misclassify unrelated numeric error codes', () => {
+    const original = Object.assign(new Error('Unrelated'), { code: 18 });
+    expect(() => translateFirestoreError(original)).toThrow(original);
   });
 });
