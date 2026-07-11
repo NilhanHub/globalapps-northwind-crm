@@ -46,5 +46,11 @@ CRM_BACKUP_URL="$backup_url"
 CRM_BACKUP_TRIGGER_TOKEN_FILE="$token_file"
 export CRM_BACKUP_URL CRM_BACKUP_TRIGGER_TOKEN_FILE
 
+node_bin='/opt/alt/alt-nodejs22/root/usr/bin/node'
+if [ ! -x "$node_bin" ]; then
+  printf '%s\n' "Hostinger Node 22 runtime is missing: $node_bin" >&2
+  exit 69
+fi
+
 CDPATH= cd "$app_root"
-exec npm run backup:hostinger:run
+exec "$node_bin" scripts/backup-hostinger-run.mjs

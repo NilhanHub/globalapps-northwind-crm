@@ -20,6 +20,9 @@ describe('Hostinger backup cron wrapper', () => {
     expect(source).toContain('app_root="$HOME/domains/crm.globalapps.world/nodejs"');
     expect(source).toContain('token_file="$HOME/northwind-crm-private/staging/secrets/backup-trigger.token"');
     expect(source).toContain('token_file="$HOME/northwind-crm-private/production/secrets/backup-trigger.token"');
+    expect(source).toContain("node_bin='/opt/alt/alt-nodejs22/root/usr/bin/node'");
+    expect(source).toContain('exec "$node_bin" scripts/backup-hostinger-run.mjs');
+    expect(source).not.toContain('exec npm');
     expect(source).toContain('*) usage ;;');
   });
 
@@ -39,19 +42,27 @@ describe('Hostinger backup cron wrapper', () => {
         mkdirSync(join(home, 'northwind-crm-private', environment, 'secrets'), { recursive: true });
         mkdirSync(binDirectory, { recursive: true });
         writeFileSync(tokenFile, 'not-read-by-wrapper\n', { mode: 0o600 });
-        const fakeNpm = join(binDirectory, 'npm');
+        const fakeNode = join(binDirectory, 'node');
         writeFileSync(
-          fakeNpm,
+          fakeNode,
           '#!/bin/sh\nprintf "%s\\n%s\\n%s\\n%s\\n" "$PWD" "$CRM_BACKUP_URL" "$CRM_BACKUP_TRIGGER_TOKEN_FILE" "$*" > "$CAPTURE_FILE"\n',
         );
-        chmodSync(fakeNpm, 0o700);
+        chmodSync(fakeNode, 0o700);
+        const testWrapper = join(home, 'hostinger-backup-cron.sh');
+        writeFileSync(
+          testWrapper,
+          readFileSync(wrapper, 'utf8').replace(
+            "node_bin='/opt/alt/alt-nodejs22/root/usr/bin/node'",
+            `node_bin='${fakeNode}'`,
+          ),
+          { mode: 0o700 },
+        );
 
-        const result = spawnSync('sh', [wrapper, environment], {
+        const result = spawnSync('sh', [testWrapper, environment], {
           encoding: 'utf8',
           env: {
             ...process.env,
             HOME: home,
-            PATH: `${binDirectory}:${process.env.PATH ?? ''}`,
             CAPTURE_FILE: captureFile,
           },
         });
@@ -61,12 +72,12 @@ describe('Hostinger backup cron wrapper', () => {
           appRoot,
           `https://${domain}`,
           tokenFile,
-          'run backup:hostinger:run',
+          'scripts/backup-hostinger-run.mjs',
         ]);
       });
     }
 
-    it('rejects unsupported environments before invoking npm', () => {
+    it('rejects unsupported environments before invoking the runtime', () => {
       const home = mkdtempSync(join(tmpdir(), 'northwind-hostinger-cron-'));
       temporaryDirectories.push(home);
       const result = spawnSync('sh', [wrapper, 'development'], {
