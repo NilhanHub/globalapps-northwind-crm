@@ -15,6 +15,7 @@ export function createMaintenanceRepository() {
   }
   const firestore = createFirebaseFirestore({
     projectId: config.projectId,
+    databaseId: config.databaseId,
     ...(config.serviceAccountBase64 ? { serviceAccountBase64: config.serviceAccountBase64 } : {}),
   });
   return { repository: createFirestoreRepository(firestore), repositoryType: 'firestore' as const };

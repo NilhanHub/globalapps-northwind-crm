@@ -25,7 +25,7 @@ The results must be `nilhan.dev@gmail.com` and the selected CRM project ID. Stop
 3. Use the Fastify preset and npm package manager. Set `CRM_BUILD_ON_INSTALL=1` only in Hostinger so the conditional root `postinstall` builds once. Local and CI installs skip this build.
 4. Set the entry file to `app.js`. It dynamically loads the compiled API at `apps/api/dist/index.js` while preserving the legacy root `server.js`.
 5. Connect `crm.globalapps.world`, wait for Hostinger TLS provisioning, and verify HTTPS before attempting login.
-6. Configure the environment keys from `.env.example`, including `NODE_ENV=production`, `CRM_REPOSITORY=firestore`, `CRM_CLOUD_OWNER_EMAIL=nilhan.dev@gmail.com`, Firebase settings, shared-login settings and `CRM_CORS_ORIGINS=https://crm.globalapps.world`.
+6. Configure the environment keys from `.env.example`, including `NODE_ENV=production`, `CRM_REPOSITORY=firestore`, `CRM_FIRESTORE_DATABASE_ID=(default)`, `CRM_CLOUD_OWNER_EMAIL=nilhan.dev@gmail.com`, Firebase settings, shared-login settings and `CRM_CORS_ORIGINS=https://crm.globalapps.world`.
 7. Set `NPM_CONFIG_INCLUDE=dev` so Hostinger installs TypeScript, tsup and Vite. Verify the compiled API and web artifacts, then prune with `npm prune --omit=dev`; do not prune before the artifact check.
 8. Set `PORT=3000`. The managed reverse proxy targets that application port; the API binds to `0.0.0.0` in production.
 9. Set `CRM_PASSWORD_SCRYPT_BASE64` to the base64 encoding of the generated scrypt hash. Hostinger must use this value in preference to the raw dollar-delimited hash.
@@ -55,10 +55,20 @@ The approved staging project ID is `globalapps-northwind-staging`. With the stag
 
 ## Private Hostinger backup cron
 
-Create a directory above all public and Node deployment directories with owner-only permissions. Configure `CRM_HOSTINGER_BACKUP_DIR`, the RSA public key and the SHA-256 trigger-token hash in the application environment. Store the plaintext trigger token only in a permission-restricted Hostinger file outside the website; it must never appear in Git or cron output.
+Use hPanel's **Access all files of your web hosting** view to create separate staging and production directories above all public and Node deployment directories. Set each directory to owner-only `0700`; never point both applications at the same directory. Configure `CRM_HOSTINGER_BACKUP_DIR`, `CRM_BACKUP_PUBLIC_KEY_BASE64` and `CRM_BACKUP_TRIGGER_HASH` in the corresponding application environment.
 
-Schedule the custom command at `02:15 UTC` to read that private token file and invoke `POST /api/maintenance/backups/run` with `X-Backup-Token`. The endpoint allows two attempts per hour and uses an exclusive run lock. A successful archive is written to a temporary name, checksum-verified, atomically renamed and only then pruned to the newest two successful copies. Failed attempts do not remove valid archives.
+Generate the RSA-4096 recovery pair with `npm run backup:generate-keys -- <ignored-local-directory>`. Generate a 256-bit trigger token with `npm run backup:generate-trigger -- <absolute-private-token-file>`. The trigger command writes the token with `0600`, refuses to overwrite an existing file and prints only its SHA-256 hash. Put that hash in `CRM_BACKUP_TRIGGER_HASH`. Store the plaintext trigger file outside every website and deployment; it must never appear in Git, environment settings or cron output.
 
-Run `npm run backup:hostinger:status` after cron changes. Diagnostics must show exactly two successful copies after the third successful run. The RSA-4096 private key belongs only in the user's password manager; never upload it to Hostinger.
+In hPanel create a **Custom** cron scheduled as `15 2 * * *` (02:15 UTC). After replacing the two reviewed absolute paths, use:
+
+```sh
+cd <absolute-node-app-root> && CRM_BACKUP_URL=https://crm-staging.globalapps.world CRM_BACKUP_TRIGGER_TOKEN_FILE=<absolute-staging-token-file> npm run backup:hostinger:run
+```
+
+Production uses the same command with `https://crm.globalapps.world` and its own token file. The runner is plain Node.js and continues working after `npm prune --omit=dev`. It requires HTTPS outside loopback, reads a strong token only from an absolute file path, stops the HTTP request after 11 minutes and never prints the token.
+
+The endpoint allows two attempts per hour and uses an exclusive run lock. A malformed crash lock becomes recoverable after 20 minutes. The whole backup has a ten-minute publication deadline. The service compares the workspace revision before and after reading all seven stores, retries once if live data changed and refuses to publish a skewed snapshot after a second change. A successful archive is written to a temporary name, checksum-verified, atomically renamed and only then pruned to the newest two successful copies. Failed attempts do not remove valid archives.
+
+Run `npm run backup:hostinger:status` after cron changes. Authenticated backup diagnostics and `/api/health` report `missing`, `healthy`, `stale`, `invalid` or `not_configured`; nightly backups become stale after 30 hours. Backup state is advisory and does not take the CRM offline. Diagnostics must show exactly two successful copies after the third successful run. The RSA-4096 private key belongs only in the user's password manager; never upload it to Hostinger.
 
 Rotate the runtime key and shared password after suspected exposure. Revoke the old key only after the replacement deployment passes health and login checks.

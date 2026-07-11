@@ -14,9 +14,17 @@ Mutations are serialized. Multi-store changes write temporary files and a recove
 
 Production protection consists of 14 daily managed backups, 14 weekly managed backups, seven-day Firestore point-in-time recovery, nightly native exports retained for 90 days in a private Singapore GCS bucket and the newest two successful encrypted archives on Hostinger.
 
-Hostinger archives contain canonical companies, people, routes, activities, import jobs, owner profiles and workspace settings plus IDs, counts, hashes and the integrity report. Sessions, cookies, trigger tokens and plaintext secrets are excluded. Each gzip bundle uses a fresh AES-256-GCM key; the AES key is wrapped with the recovery RSA-4096 public key using OAEP-SHA256.
+Hostinger archives contain canonical companies, people, routes, activities, import jobs, owner profiles and workspace settings plus IDs, counts, hashes and the integrity report. Sessions, cookies, trigger tokens and plaintext secrets are excluded. Archive-envelope version 2 uses a fresh AES-256-GCM key; the AES key is wrapped with the recovery RSA-4096 public key using OAEP-SHA256. Format, version, creation time, workspace, algorithm, wrapped key and plaintext hash are authenticated as AES-GCM additional data and cross-checked against the decrypted bundle. Pre-launch version-1 fixtures are deliberately rejected because their metadata was not authenticated.
 
-For a Hostinger archive drill, supply the private key from the password manager only for the duration of `npm run backup:decrypt` or `npm run backup:restore:validate`. Restore into a temporary Firestore database, compare IDs/counts/hashes/relationships, run an isolated read-only API and browser check, save sanitized evidence, and remove the temporary key material. Production is never the first restore target.
+For a Hostinger archive drill, supply the private key from the password manager only for the duration of `npm run backup:decrypt`, `npm run backup:restore:validate` or `npm run backup:restore:firestore`. The first two commands are read-only. The Firestore restore command requires `--apply`, an explicit named non-default database, the source and production database IDs, and the exact confirmation phrase. It creates missing documents only, treats exact records as resumable no-ops, refuses conflicting or unexpected target documents, and verifies IDs, counts, hashes and relationships after writing.
+
+Create the temporary database in the same Google project and region as the source using the [official named-database procedure](https://cloud.google.com/firestore/docs/manage-databases); do not use the live `(default)` database. With `CRM_BACKUP_PRIVATE_KEY_FILE` and the target project's runtime credential supplied temporarily, run:
+
+```text
+npm run backup:restore:firestore -- --apply --archive=<archive.nwbackup> --target-project=<project-id> --target-database=<restore-drill-id> --source-database=(default) --production-database=(default) --workspace=default --confirm="RESTORE <project-id>/<restore-drill-id>/default"
+```
+
+Set `CRM_FIRESTORE_DATABASE_ID=<restore-drill-id>` when starting the isolated API for read-only browser verification. Save sanitized evidence before deleting the temporary database, then remove the private-key file and unset its environment variable. Production is never the first restore target.
 
 Cloud recovery procedure:
 

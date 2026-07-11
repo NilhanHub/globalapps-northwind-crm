@@ -19,7 +19,7 @@
     "test:unit": "vitest run",
     "test:legacy": "node --test tests/*.test.js",
     "test:cloud": "node --test infra/functions/**/*.test.cjs",
-    "test:firestore-emulator": "firebase emulators:exec --only firestore --project demo-northwind-crm \"vitest run apps/api/src/repositories/firestore-emulator.test.ts\"",
+    "test:firestore-emulator": "firebase emulators:exec --only firestore --project demo-northwind-crm \"vitest run apps/api/src/repositories/firestore-emulator.test.ts apps/api/src/services/firestore-backup-restore.test.ts\"",
     "test:e2e": "playwright test",
     "start:e2e": "tsx scripts/start-e2e.ts",
     "evidence:capture": "tsx scripts/capture-evidence.ts",
@@ -40,13 +40,15 @@
     "data:migrate:query-keys": "tsx scripts/migrate-query-keys.ts",
     "data:export:firestore": "tsx scripts/export-firestore.ts",
     "data:verify-export": "tsx scripts/verify-export.ts",
-    "ops:footprint": "tsx scripts/ops-footprint.ts"
-    ,"backup:hostinger:run": "tsx scripts/backup-hostinger-run.ts"
-    ,"backup:hostinger:status": "tsx scripts/backup-hostinger-status.ts"
-    ,"backup:generate-keys": "tsx scripts/backup-generate-keys.ts"
-    ,"backup:decrypt": "tsx scripts/backup-decrypt.ts"
-    ,"backup:verify": "tsx scripts/backup-verify.ts"
-    ,"backup:restore:validate": "tsx scripts/backup-restore-validate.ts"
+    "ops:footprint": "tsx scripts/ops-footprint.ts",
+    "backup:hostinger:run": "node scripts/backup-hostinger-run.mjs",
+    "backup:hostinger:status": "node scripts/backup-hostinger-status.mjs",
+    "backup:generate-trigger": "node scripts/backup-generate-trigger.mjs",
+    "backup:generate-keys": "tsx scripts/backup-generate-keys.ts",
+    "backup:decrypt": "tsx scripts/backup-decrypt.ts",
+    "backup:verify": "tsx scripts/backup-verify.ts",
+    "backup:restore:validate": "tsx scripts/backup-restore-validate.ts",
+    "backup:restore:firestore": "tsx scripts/backup-restore-firestore.ts"
   },
   "engines": {
     "node": ">=22.0.0 <23"

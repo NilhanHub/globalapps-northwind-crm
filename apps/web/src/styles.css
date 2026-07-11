@@ -1288,7 +1288,11 @@ a {
   font-weight: 750;
 }
 .data-table-wrap {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
   overflow: auto;
+  overscroll-behavior-x: contain;
   border: 1px solid var(--nw-line);
   border-radius: var(--nw-radius-md);
   background: var(--nw-paper);

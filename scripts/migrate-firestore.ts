@@ -60,6 +60,7 @@ if (useGcloudUser) {
   if (config.mode !== 'firestore') throw new Error('Firestore configuration was not selected');
   const db = createFirebaseFirestore({
     projectId: config.projectId,
+    databaseId: config.databaseId,
     ...(config.serviceAccountBase64 ? { serviceAccountBase64: config.serviceAccountBase64 } : {}),
   });
   destination = createFirestoreRepository(db);

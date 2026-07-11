@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseServiceAccountBase64 } from './firebase.js';
+import { createFirebaseFirestore, parseServiceAccountBase64 } from './firebase.js';
 
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value), 'utf8').toString('base64');
 
@@ -20,5 +20,20 @@ describe('Firebase server configuration', () => {
     expect(() => parseServiceAccountBase64('not-base64', 'expected-project')).toThrow(
       'Firebase service-account configuration is invalid',
     );
+  });
+});
+
+describe('Firebase Firestore construction', () => {
+  it('selects the default Firestore database when no database ID is supplied', () => {
+    const firestore = createFirebaseFirestore({ projectId: 'demo-northwind-crm' });
+    expect(firestore.databaseId).toBe('(default)');
+  });
+
+  it('selects an explicit named Firestore database without making a cloud request', () => {
+    const firestore = createFirebaseFirestore({
+      projectId: 'demo-northwind-crm',
+      databaseId: 'restore-verification',
+    });
+    expect(firestore.databaseId).toBe('restore-verification');
   });
 });

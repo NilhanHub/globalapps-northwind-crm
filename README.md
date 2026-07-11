@@ -56,9 +56,12 @@ npm run data:migrate:query-keys idempotently fill normalized Firestore paging/se
 npm run ops:footprint report deploy files, bytes, caches and threshold usage
 npm run backup:hostinger:run create and retain a validated encrypted backup
 npm run backup:hostinger:status report backup count, age and filenames
+npm run backup:generate-trigger create a private 256-bit trigger file and print only its hash
+npm run backup:generate-keys create the one-time RSA-4096 recovery key pair
 npm run backup:verify validate an encrypted backup envelope and checksum
 npm run backup:decrypt decrypt a backup with a temporarily supplied private key
 npm run backup:restore:validate validate IDs, hashes and relationships after decryption
+npm run backup:restore:firestore restore safely into an explicit named temporary Firestore database
 ```
 
 ## Security model
@@ -75,6 +78,6 @@ Migration never deletes the root stores. Firestore writes are transactional, rec
 
 Route owners are configurable workspace labels, not login identities. Shared in-app reminders use `Europe/London`; their snoozes are workspace-wide and audited. Large company, people, route and activity lists use opaque server cursors while the compatibility collection endpoints remain available for bounded maintenance work.
 
-Normal releases never compare production to the obsolete root JSON seed. Use `data:integrity`, `data:export:firestore` and `data:verify-export` against current Firestore state. Research intake is dry-run first, provenance-aware, resumable and idempotent through `/imports`.
+Normal releases never compare production to the obsolete root JSON seed. Use `data:integrity`, `data:export:firestore` and `data:verify-export` against current Firestore state. Research intake is dry-run first, provenance-aware, resumable and idempotent through `/imports`. Hostinger archive format 2 authenticates its metadata as well as its encrypted content; staging and production use isolated private directories and trigger tokens.
 
 This repository is private and unlicensed. See [UNLICENSED](UNLICENSED).
