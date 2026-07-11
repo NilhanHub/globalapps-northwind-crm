@@ -11,6 +11,7 @@
 - Added guarded, resumable restore into an explicit named temporary Firestore database and runtime support for isolated named-database verification.
 - Hardened responsive evidence capture to wait for real workspaces, cover every primary page and breakpoint, run accessibility checks and fail on console, network or overflow defects.
 - Fixed People table assistive text escaping its scroll container at tablet and mobile widths.
+- Fixed populated-dashboard contrast and made horizontally scrollable metric summaries keyboard accessible.
 - Added normalized identity integrity checks, focused owner/page/reminder API modules and expanded emulator/browser coverage.
 
 ## 2.1.0 - 2026-07-10

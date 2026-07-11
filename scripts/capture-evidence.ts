@@ -17,13 +17,14 @@ const failedRequests: Array<{ url: string; status: number }> = [];
 const accessibility: Array<{
   path: string;
   width: number;
-  violations: Array<{ id: string; impact: string | null; nodes: number; help: string }>;
+  violations: Array<{ id: string; impact: string | null; nodes: number; help: string; targets: string[] }>;
 }> = [];
 page.on('console', (message) => consoleEntries.push({ type: message.type(), text: message.text() }));
 page.on('response', (response) => {
   if (response.status() >= 400) failedRequests.push({ url: response.url(), status: response.status() });
 });
 await page.goto(`${baseURL}/login`);
+await page.locator('main h1').waitFor({ state: 'visible' });
 const loginAccessibility = await new AxeBuilder({ page }).analyze();
 accessibility.push({
   path: 'login',
@@ -33,6 +34,7 @@ accessibility.push({
     impact,
     nodes: nodes.length,
     help,
+    targets: nodes.flatMap((node) => node.target.map(String)).slice(0, 12),
   })),
 });
 await page.getByLabel('Username').fill(username);
@@ -92,6 +94,7 @@ for (const path of paths) {
           impact,
           nodes: nodes.length,
           help,
+          targets: nodes.flatMap((node) => node.target.map(String)).slice(0, 12),
         })),
       });
     }
