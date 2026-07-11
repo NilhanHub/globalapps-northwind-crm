@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Archive, CheckCircle2, MessageSquare, Phone, RotateCcw, Send, Trophy, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Archive,
+  Bell,
+  CheckCircle2,
+  MessageSquare,
+  Phone,
+  RotateCcw,
+  Send,
+  Trophy,
+  XCircle,
+} from 'lucide-react';
 import {
   Badge,
   Button,
@@ -384,6 +395,12 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
               ['Due date', route.dueDate || 'No date'],
               ['Next action', route.nextAction || 'Not set'],
               ['Outcome', route.outcome],
+              [
+                'Reminder',
+                route.reminderSnoozedUntil
+                  ? `Snoozed until ${new Date(route.reminderSnoozedUntil).toLocaleString()}`
+                  : 'Active',
+              ],
             ].map(([label, value]) => (
               <div
                 key={label}
@@ -393,6 +410,11 @@ export function RouteDetailPage({ data, onRefresh }: { data: BootstrapData; onRe
                 <strong className="text-sm font-semibold text-ink">{value}</strong>
               </div>
             ))}
+            {route.reminderSnoozedUntil ? (
+              <Button variant="secondary" disabled={Boolean(busy)} onClick={() => perform('clear_reminder_snooze')}>
+                <Bell size={15} className="mr-2" /> Clear shared snooze
+              </Button>
+            ) : null}
           </div>
         </Card>
 

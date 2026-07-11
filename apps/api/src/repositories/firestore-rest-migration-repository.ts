@@ -100,6 +100,26 @@ export function createFirestoreRestMigrationRepository(options: {
       } while (pageToken);
       return records;
     },
+    async page<S extends StoreName>(store: S, workspaceId: string, query: import('./repository.js').PageQuery) {
+      let records = (await this.list(store, workspaceId)) as Array<Record<string, unknown>>;
+      for (const [field, expected] of Object.entries(query.equals ?? {}))
+        records = records.filter((record) => record[field] === expected);
+      if (query.prefix)
+        records = records.filter((record) => String(record[query.prefix!.field] ?? '').startsWith(query.prefix!.value));
+      records.sort((left, right) => {
+        const byField = String(left[query.orderBy] ?? '').localeCompare(String(right[query.orderBy] ?? ''));
+        const byId = String(left.id).localeCompare(String(right.id));
+        return (byField || byId) * (query.direction === 'asc' ? 1 : -1);
+      });
+      const items = records.slice(0, query.limit) as StoreRecord<S>[];
+      const last = items.at(-1) as Record<string, unknown> | undefined;
+      return {
+        items,
+        hasMore: records.length > query.limit,
+        nextAnchor:
+          records.length > query.limit && last ? ([last[query.orderBy], String(last.id)] as [unknown, string]) : null,
+      };
+    },
     async create<S extends StoreName>(store: S, input: Record<string, unknown>, workspaceId: string) {
       const record = storeSchemas[store].parse(normalizeRecordScope({ ...input, workspaceId, version: 1 }));
       const payload = await request(

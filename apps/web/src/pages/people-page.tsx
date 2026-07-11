@@ -267,12 +267,18 @@ export function PeoplePage({
   routes,
   onCreate,
   onRefresh,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   people: Person[];
   companies: Company[];
   routes: Route[];
   onCreate?: () => void;
   onRefresh?: () => Promise<unknown>;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
@@ -413,6 +419,13 @@ export function PeoplePage({
           icon={<UsersRound size={24} />}
         />
       )}
+      {hasMore ? (
+        <div className="page-load-more">
+          <Button variant="secondary" disabled={loadingMore} onClick={onLoadMore}>
+            {loadingMore ? 'Loading…' : 'Load more people'}
+          </Button>
+        </div>
+      ) : null}
       {selected ? (
         <PersonDialog
           person={selected}

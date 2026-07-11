@@ -113,7 +113,7 @@ export function createJsonRepository(dataDir: string): CrmRepository & { recover
     },
 
     async getWorkspaceRevision(workspaceId: string) {
-      const stores: StoreName[] = ['companies', 'people', 'routes', 'activities'];
+      const stores: StoreName[] = ['companies', 'people', 'routes', 'activities', 'owners', 'settings'];
       const records = stores.flatMap((store) => read(store).filter((record) => record.workspaceId === workspaceId));
       const canonical = JSON.stringify(
         records
@@ -137,6 +137,40 @@ export function createJsonRepository(dataDir: string): CrmRepository & { recover
 
     async list<S extends StoreName>(store: S, workspaceId: string): Promise<StoreRecord<S>[]> {
       return read(store).filter((record) => record.workspaceId === workspaceId);
+    },
+
+    async page<S extends StoreName>(store: S, workspaceId: string, query: import('./repository.js').PageQuery) {
+      let records = read(store).filter((record) => record.workspaceId === workspaceId) as Array<
+        Record<string, unknown>
+      >;
+      for (const [field, expected] of Object.entries(query.equals ?? {}))
+        records = records.filter((record) => record[field] === expected);
+      if (query.prefix) {
+        const prefix = query.prefix.value;
+        records = records.filter((record) => String(record[query.prefix!.field] ?? '').startsWith(prefix));
+      }
+      const compare = (left: Record<string, unknown>, right: Record<string, unknown>) => {
+        const byField = String(left[query.orderBy] ?? '').localeCompare(String(right[query.orderBy] ?? ''));
+        const byId = String(left.id).localeCompare(String(right.id));
+        return (byField || byId) * (query.direction === 'asc' ? 1 : -1);
+      };
+      records.sort(compare);
+      if (query.startAfter) {
+        const [field, id] = query.startAfter;
+        records = records.filter((record) => {
+          const candidate: Record<string, unknown> = { ...record, id };
+          candidate[query.orderBy] = field;
+          return compare(record, candidate) > 0;
+        });
+      }
+      const hasMore = records.length > query.limit;
+      const items = records.slice(0, query.limit) as StoreRecord<S>[];
+      const last = items.at(-1) as Record<string, unknown> | undefined;
+      return {
+        items,
+        hasMore,
+        nextAnchor: hasMore && last ? [last[query.orderBy], String(last.id)] : null,
+      };
     },
 
     create<S extends StoreName>(

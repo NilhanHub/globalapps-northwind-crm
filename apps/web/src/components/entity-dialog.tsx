@@ -30,6 +30,7 @@ const routeSchema = z.object({
   targetPersonId: z.string().min(1, 'Target is required'),
   mutualPersonId: z.string().min(1, 'Mutual contact is required'),
   owner: z.string().optional(),
+  ownerId: z.string().optional(),
   nextAction: z.string().optional(),
   dueDate: z.union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter a valid due date')]).optional(),
   confidence: z.string().optional(),
@@ -294,12 +295,14 @@ export function EntityDialog(props: {
 
               <Field>
                 <Label htmlFor="route-owner">Owner</Label>
-                <Select id="route-owner" {...register('owner')} defaultValue="unassigned">
-                  <option value="unassigned">Unassigned</option>
-                  <option>Paul</option>
-                  <option>Jeremy</option>
-                  <option>Nilhan</option>
-                  <option value="other">Other</option>
+                <Select id="route-owner" {...register('ownerId')} defaultValue="owner-unassigned">
+                  {props.data.owners
+                    .filter((owner) => owner.active)
+                    .map((owner) => (
+                      <option key={owner.id} value={owner.id}>
+                        {owner.displayName}
+                      </option>
+                    ))}
                 </Select>
               </Field>
             </div>

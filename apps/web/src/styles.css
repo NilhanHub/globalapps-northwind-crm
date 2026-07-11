@@ -2407,3 +2407,196 @@ a {
     bottom: 74px;
   }
 }
+
+.user-chip .nw-icon-button {
+  position: relative;
+  flex: 0 0 auto;
+}
+.reminder-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 2px solid var(--nw-paper);
+  border-radius: 999px;
+  background: var(--nw-burgundy);
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+}
+.shared-reminder-note,
+.settings-intro {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--nw-copper) 28%, var(--nw-line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--nw-copper) 7%, var(--nw-paper));
+  color: var(--nw-ink-soft);
+  font-size: 13px;
+}
+.settings-intro {
+  display: block;
+}
+.settings-intro p {
+  margin: 4px 0 0;
+}
+.reminder-groups {
+  display: grid;
+  gap: 18px;
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  padding-right: 4px;
+}
+.reminder-group {
+  display: grid;
+  gap: 8px;
+}
+.reminder-group h3 {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.reminder-group h3 span {
+  color: var(--nw-burgundy);
+}
+.reminder-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px;
+  border: 1px solid var(--nw-line);
+  border-radius: 10px;
+  background: var(--nw-paper);
+}
+.reminder-item > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+.reminder-item small {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--nw-ink-soft);
+}
+.reminder-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reminder-reschedule {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reminder-reschedule input {
+  min-width: 9.5rem;
+}
+.reminder-open-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: var(--nw-burgundy);
+  font-weight: 700;
+  text-decoration: none;
+}
+.reminder-open-link:focus-visible {
+  outline: 2px solid var(--nw-copper);
+  outline-offset: 2px;
+}
+.reminder-empty {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 32px;
+  color: var(--nw-ink-soft);
+  text-align: center;
+}
+.owner-settings-list {
+  display: grid;
+  gap: 10px;
+  max-height: min(55vh, 520px);
+  overflow: auto;
+}
+.owner-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--nw-line);
+  border-radius: 10px;
+}
+.owner-setting-row > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+.owner-setting-row small {
+  color: var(--nw-ink-soft);
+}
+.owner-setting-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.owner-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 14px;
+}
+.page-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 4px;
+}
+
+/* Browser-native rendering containment keeps manually expanded pages responsive above 100 rows. */
+.company-grid > .company-card,
+.people-table tbody tr,
+.route-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 96px;
+}
+.field-error {
+  color: var(--nw-danger);
+  font-size: 12px;
+}
+.command-results button span small {
+  display: block;
+  color: var(--nw-ink-soft);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+  .user-chip > div {
+    display: none;
+  }
+  .reminder-item {
+    display: grid;
+  }
+  .owner-setting-row {
+    grid-template-columns: 1fr;
+  }
+  .reminder-actions,
+  .owner-setting-actions {
+    flex-wrap: wrap;
+  }
+  .owner-create-row {
+    grid-template-columns: 1fr;
+  }
+}

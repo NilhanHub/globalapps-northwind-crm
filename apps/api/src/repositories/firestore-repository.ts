@@ -1,4 +1,10 @@
-import type { DocumentReference, DocumentSnapshot, Firestore, Transaction } from '@google-cloud/firestore';
+import {
+  FieldPath,
+  type DocumentReference,
+  type DocumentSnapshot,
+  type Firestore,
+  type Transaction,
+} from '@google-cloud/firestore';
 import { normalizeRecordScope } from '@northwind/domain';
 import {
   FirestoreUnavailableError,
@@ -9,6 +15,7 @@ import {
   type StoreChanges,
   type StoreName,
   type StoreRecord,
+  type PageQuery,
 } from './repository.js';
 
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
@@ -153,6 +160,35 @@ export function createFirestoreRepository(db: Firestore): CrmRepository {
           store,
           snapshot.docs.map((item) => storeSchemas[store].parse(normalizeRecordScope(item.data()))),
         ) as StoreRecord<S>[];
+      } catch (error) {
+        return cloudError(error);
+      }
+    },
+
+    async page<S extends StoreName>(store: S, workspaceId: string, query: PageQuery) {
+      try {
+        let reference: FirebaseFirestore.Query = db.collection(firestoreCollectionPath(workspaceId, store));
+        for (const [field, expected] of Object.entries(query.equals ?? {}))
+          reference = reference.where(field, '==', expected);
+        if (query.prefix) {
+          reference = reference
+            .where(query.prefix.field, '>=', query.prefix.value)
+            .where(query.prefix.field, '<=', `${query.prefix.value}\uf8ff`);
+        }
+        reference = reference.orderBy(query.orderBy, query.direction).orderBy(FieldPath.documentId(), query.direction);
+        if (query.startAfter) reference = reference.startAfter(...query.startAfter);
+        const snapshot = await reference.limit(query.limit + 1).get();
+        const hasMore = snapshot.docs.length > query.limit;
+        const docs = snapshot.docs.slice(0, query.limit);
+        const items = docs.map((item) =>
+          storeSchemas[store].parse(normalizeRecordScope(item.data())),
+        ) as StoreRecord<S>[];
+        const last = items.at(-1) as Record<string, unknown> | undefined;
+        return {
+          items,
+          hasMore,
+          nextAnchor: hasMore && last ? ([last[query.orderBy], String(last.id)] as [unknown, string]) : null,
+        };
       } catch (error) {
         return cloudError(error);
       }

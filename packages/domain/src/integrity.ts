@@ -1,6 +1,6 @@
 export type IntegrityIssue = {
   code: string;
-  store: 'companies' | 'people' | 'routes' | 'activities';
+  store: 'companies' | 'people' | 'routes' | 'activities' | 'owners' | 'settings';
   recordId: string;
   field: string;
   reference?: string;
@@ -12,6 +12,7 @@ type AnyRecord = Record<string, unknown>;
 export function normalizeIdentity(value: string) {
   return value
     .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
     .replace(/[’'`]/g, '')
     .replace(/&/g, ' and ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
@@ -67,6 +68,8 @@ export function auditWorkspaceData(input: {
   people: AnyRecord[];
   routes: AnyRecord[];
   activities: AnyRecord[];
+  owners?: AnyRecord[];
+  settings?: AnyRecord[];
   workspaceId?: string;
 }) {
   const workspaceId = input.workspaceId ?? 'default';
@@ -74,11 +77,12 @@ export function auditWorkspaceData(input: {
   const companyIds = new Set(input.companies.map((record) => String(record.id)));
   const peopleById = new Map(input.people.map((record) => [String(record.id), record]));
   const routeIds = new Set(input.routes.map((record) => String(record.id)));
-  const stores = ['companies', 'people', 'routes', 'activities'] as const;
+  const ownerIds = new Set((input.owners ?? []).map((record) => String(record.id)));
+  const stores = ['companies', 'people', 'routes', 'activities', 'owners', 'settings'] as const;
 
   const add = (issue: IntegrityIssue) => issues.push(issue);
   for (const store of stores) {
-    const records = input[store];
+    const records = input[store] ?? [];
     for (const record of records) {
       const id = String(record.id ?? '');
       if (!id) add({ code: 'MISSING_ID', store, recordId: '', field: 'id', message: 'Record has no identifier' });
@@ -122,11 +126,54 @@ export function auditWorkspaceData(input: {
     }
   }
 
+  for (const company of input.companies) {
+    const expected = normalizeIdentity(String(company.name ?? ''));
+    if (String(company.normalizedName ?? '') !== expected)
+      add({
+        code: 'COMPANY_QUERY_KEY_MISMATCH',
+        store: 'companies',
+        recordId: String(company.id),
+        field: 'normalizedName',
+        message: 'Company normalized query key is missing or stale',
+      });
+  }
+
+  for (const person of input.people) {
+    const expectedName = normalizeIdentity(String(person.name ?? ''));
+    const expectedLinkedIn = normalizeLinkedIn(String(person.linkedinUrl ?? ''));
+    if (String(person.normalizedName ?? '') !== expectedName)
+      add({
+        code: 'PERSON_QUERY_KEY_MISMATCH',
+        store: 'people',
+        recordId: String(person.id),
+        field: 'normalizedName',
+        message: 'Person normalized query key is missing or stale',
+      });
+    if (String(person.normalizedLinkedInKey ?? '') !== expectedLinkedIn)
+      add({
+        code: 'PERSON_LINKEDIN_KEY_MISMATCH',
+        store: 'people',
+        recordId: String(person.id),
+        field: 'normalizedLinkedInKey',
+        message: 'Person LinkedIn query key is missing or stale',
+      });
+  }
+
   for (const route of input.routes) {
     const id = String(route.id);
     const companyId = String(route.companyId ?? '');
     const targetId = String(route.targetPersonId ?? '');
     const mutualId = String(route.mutualPersonId ?? '');
+    const ownerId = String(route.ownerId ?? '');
+    if ((input.owners?.length ?? 0) > 0 && !ownerIds.has(ownerId))
+      add({
+        code: 'BROKEN_ROUTE_OWNER',
+        store: 'routes',
+        recordId: id,
+        field: 'ownerId',
+        reference: ownerId,
+        message: 'Route references a missing owner profile',
+      });
     if (!companyIds.has(companyId))
       add({
         code: 'BROKEN_ROUTE_COMPANY',
@@ -209,6 +256,7 @@ export function auditWorkspaceData(input: {
       input.routes.filter((route) => !['Won', 'Dead / no route'].includes(String(route.stage))),
       (record) => `${String(record.targetPersonId ?? '')}|${String(record.mutualPersonId ?? '')}`,
     ),
+    owners: duplicateGroups(input.owners ?? [], (record) => normalizeIdentity(String(record.displayName ?? ''))),
   };
   issues.sort((left, right) =>
     `${left.store}:${left.recordId}:${left.code}`.localeCompare(`${right.store}:${right.recordId}:${right.code}`),
@@ -216,7 +264,7 @@ export function auditWorkspaceData(input: {
   return {
     ok: issues.length === 0 && Object.values(duplicates).every((groups) => groups.length === 0),
     workspaceId,
-    counts: Object.fromEntries(stores.map((store) => [store, input[store].length])) as Record<
+    counts: Object.fromEntries(stores.map((store) => [store, (input[store] ?? []).length])) as Record<
       (typeof stores)[number],
       number
     >,

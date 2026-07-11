@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { createHash } from 'node:crypto';
+import { createHash, createPublicKey } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { createAuthService, resolvePasswordHash } from './auth/auth-service.js';
 import { migrateDataStores } from './migration.js';
 import { createJsonRepository } from './repositories/json-repository.js';
@@ -55,6 +55,33 @@ const allowedOrigins = (process.env.CRM_CORS_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+const backupDirectory = process.env.CRM_HOSTINGER_BACKUP_DIR?.trim() ?? '';
+const backupTriggerTokenHash = process.env.CRM_BACKUP_TRIGGER_HASH?.trim() ?? '';
+const backupPublicKeyPem = (() => {
+  const encoded = process.env.CRM_BACKUP_PUBLIC_KEY_BASE64?.trim();
+  return encoded ? Buffer.from(encoded, 'base64').toString('utf8') : '';
+})();
+const backupConfigured = Boolean(backupDirectory && backupTriggerTokenHash && backupPublicKeyPem);
+if (
+  process.env.NODE_ENV === 'production' &&
+  [backupDirectory, backupTriggerTokenHash, backupPublicKeyPem].some(Boolean) &&
+  !backupConfigured
+)
+  throw new Error('Hostinger backup requires directory, public key and trigger-token hash together');
+if (backupConfigured) {
+  if (!/^[a-f0-9]{64}$/i.test(backupTriggerTokenHash))
+    throw new Error('CRM_BACKUP_TRIGGER_HASH must be a SHA-256 hex digest');
+  if (!isAbsolute(backupDirectory)) throw new Error('CRM_HOSTINGER_BACKUP_DIR must be an absolute private path');
+  const relativeToRepository = relative(root, resolve(backupDirectory));
+  if (!relativeToRepository.startsWith('..') && !isAbsolute(relativeToRepository))
+    throw new Error('CRM_HOSTINGER_BACKUP_DIR must be outside the repository and deployment directory');
+  createPublicKey(backupPublicKeyPem);
+}
+const releaseVersion = process.env.CRM_APP_VERSION?.trim() || '2.0.0';
+const releaseCommit = process.env.CRM_COMMIT_SHA?.trim() || 'unknown';
+const releaseBuildTime = process.env.CRM_BUILD_TIME?.trim() || 'unknown';
+if (process.env.NODE_ENV === 'production' && (releaseCommit === 'unknown' || releaseBuildTime === 'unknown'))
+  throw new Error('Production requires CRM_COMMIT_SHA and CRM_BUILD_TIME release metadata');
 
 const firestore =
   repositoryConfig.mode === 'firestore'
@@ -81,11 +108,20 @@ const app = await createApp({
   ...(agentToken ? { agentTokenHash: createHash('sha256').update(agentToken).digest('hex') } : {}),
   ...(scopedAgentTokens.length ? { agentTokens: scopedAgentTokens } : {}),
   ...(allowedOrigins.length ? { allowedOrigins } : {}),
+  ...(backupConfigured
+    ? {
+        backup: {
+          directory: backupDirectory,
+          publicKeyPem: backupPublicKeyPem,
+          triggerTokenHash: backupTriggerTokenHash,
+        },
+      }
+    : {}),
   logRequests: true,
   release: {
-    version: process.env.CRM_APP_VERSION || '2.0.0',
-    commitSha: process.env.CRM_COMMIT_SHA || 'unknown',
-    buildTime: process.env.CRM_BUILD_TIME || 'unknown',
+    version: releaseVersion,
+    commitSha: releaseCommit,
+    buildTime: releaseBuildTime,
     repositoryType: repositoryConfig.mode,
   },
 });

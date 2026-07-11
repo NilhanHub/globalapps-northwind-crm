@@ -41,6 +41,13 @@ const report = {
   diskPercent,
   inodePercent,
   thresholdPercent: 70,
+  warningThresholdPercent: 60,
+  status:
+    (diskPercent && diskPercent >= 70) || (inodePercent && inodePercent >= 70)
+      ? 'alert'
+      : (diskPercent && diskPercent >= 60) || (inodePercent && inodePercent >= 60)
+        ? 'warning'
+        : 'ok',
   alert: Boolean((diskPercent && diskPercent >= 70) || (inodePercent && inodePercent >= 70)),
   categories: Object.fromEntries([...categories.entries()].sort(([a], [b]) => a.localeCompare(b))),
 };

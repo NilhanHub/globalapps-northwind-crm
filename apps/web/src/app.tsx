@@ -10,7 +10,15 @@ import { LoginPage } from './pages/login-page';
 import { EntityDialog, type EntityDialogKind } from './components/entity-dialog';
 import { ApiError } from '@northwind/api-client';
 import { queryClient } from './query-client';
-import { useBootstrapQuery, queryKeys, useWorkspaceRevisionQuery } from './queries';
+import {
+  useBootstrapQuery,
+  queryKeys,
+  useWorkspaceRevisionQuery,
+  useCompanyPages,
+  usePersonPages,
+  useRouteMetrics,
+  useRoutePages,
+} from './queries';
 
 const CompaniesPage = lazy(() =>
   import('./pages/companies-page').then((module) => ({ default: module.CompaniesPage })),
@@ -87,6 +95,13 @@ function Workspace({ data }: { data: BootstrapData }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const revision = useWorkspaceRevisionQuery(true, data.workspaceRevision?.revision ?? '');
+  const companyPages = useCompanyPages(true);
+  const routePages = useRoutePages(true);
+  const personPages = usePersonPages(true);
+  const routeMetrics = useRouteMetrics(true);
+  const pagedCompanies = companyPages.data?.pages.flatMap((page) => page.items) ?? data.companies;
+  const pagedRoutes = routePages.data?.pages.flatMap((page) => page.items) ?? data.routes;
+  const pagedPeople = personPages.data?.pages.flatMap((page) => page.items) ?? data.people;
   async function create(kind: Exclude<EntityDialogKind, null>, values: Record<string, unknown>) {
     setBusy(true);
     setError('');
@@ -123,7 +138,14 @@ function Workspace({ data }: { data: BootstrapData }) {
           <Route
             path="/companies"
             element={
-              <CompaniesPage companies={data.companies} routes={data.routes} onCreate={() => setDialog('company')} />
+              <CompaniesPage
+                companies={pagedCompanies}
+                routes={data.routes}
+                onCreate={() => setDialog('company')}
+                hasMore={companyPages.hasNextPage}
+                loadingMore={companyPages.isFetchingNextPage}
+                onLoadMore={() => void companyPages.fetchNextPage()}
+              />
             }
           />
           <Route path="/companies/:id" element={<CompanyDetailPage {...data} onRefresh={refresh} />} />
@@ -131,11 +153,14 @@ function Workspace({ data }: { data: BootstrapData }) {
             path="/people"
             element={
               <PeoplePage
-                people={data.people}
+                people={pagedPeople}
                 companies={data.companies}
                 routes={data.routes}
                 onCreate={() => setDialog('person')}
                 onRefresh={refresh}
+                hasMore={personPages.hasNextPage}
+                loadingMore={personPages.isFetchingNextPage}
+                onLoadMore={() => void personPages.fetchNextPage()}
               />
             }
           />
@@ -145,7 +170,12 @@ function Workspace({ data }: { data: BootstrapData }) {
               <RoutesPage
                 companies={data.companies}
                 people={data.people}
-                routes={data.routes}
+                routes={pagedRoutes}
+                owners={data.owners}
+                {...(routeMetrics.data ? { metrics: routeMetrics.data } : {})}
+                hasMore={routePages.hasNextPage}
+                loadingMore={routePages.isFetchingNextPage}
+                onLoadMore={() => void routePages.fetchNextPage()}
                 onCreate={() => setDialog('route')}
                 onRefresh={refresh}
               />
@@ -155,7 +185,13 @@ function Workspace({ data }: { data: BootstrapData }) {
           <Route
             path="/dashboard"
             element={
-              <DashboardPage companies={data.companies} people={data.people} routes={data.routes} onRefresh={refresh} />
+              <DashboardPage
+                companies={data.companies}
+                people={data.people}
+                routes={data.routes}
+                owners={data.owners}
+                onRefresh={refresh}
+              />
             }
           />
           <Route path="/process" element={<ProcessPage />} />

@@ -12,10 +12,16 @@ export function CompaniesPage({
   companies,
   routes,
   onCreate,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: {
   companies: Company[];
   routes: Route[];
   onCreate?: () => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [view, setView] = useState<'grid' | 'table'>('grid');
@@ -152,6 +158,13 @@ export function CompaniesPage({
           action={!query ? <Button onClick={onCreate}>Add company</Button> : null}
         />
       )}
+      {hasMore ? (
+        <div className="page-load-more">
+          <Button variant="secondary" disabled={loadingMore} onClick={onLoadMore}>
+            {loadingMore ? 'Loading…' : 'Load more companies'}
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -1,6 +1,13 @@
 import 'dotenv/config';
-import { createRouteActivity, prepareCompany, preparePerson, prepareRoute } from '@northwind/domain';
-import type { Company, Person, Route } from '@northwind/domain';
+import {
+  createRouteActivity,
+  defaultOwnerProfiles,
+  prepareCompany,
+  preparePerson,
+  prepareRoute,
+  workspaceSettingsSchema,
+} from '@northwind/domain';
+import type { Activity, Company, Person, Route } from '@northwind/domain';
 import { createMaintenanceRepository } from './lib/maintenance-repository.js';
 
 const STAGING_PROJECT_ID = 'globalapps-northwind-staging';
@@ -135,7 +142,7 @@ addRoute(
   'staging-route-juniper-riley',
 );
 
-const activities = [
+const activities: Activity[] = [
   createRouteActivity({
     id: 'staging-activity-intro-requested',
     route: introRoute,
@@ -145,9 +152,92 @@ const activities = [
     now,
     resultingState: { stage: introRoute.stage },
   }),
+  createRouteActivity({
+    id: 'staging-activity-context-prepared',
+    route: introRoute,
+    actor: 'staging-seed',
+    type: 'note',
+    summary: 'Fictional context prepared for scale verification',
+    now,
+  }),
 ];
 
-await repository.upsertTransaction({ companies, people, routes, activities });
+for (let index = 1; index <= 98; index += 1) {
+  const suffix = String(index).padStart(3, '0');
+  const company = prepareCompany(
+    { name: `Fixture Company ${suffix}`, industry: 'Staging fixture', country: 'United Kingdom', sector: 'Demo' },
+    { id: `staging-company-fixture-${suffix}`, now, actor: 'staging-seed' },
+  );
+  companies.push(company);
+  const mutual = addPerson(
+    { name: `Mutual Fixture ${suffix}`, type: 'mutual', title: 'Fictional mutual contact', notes: 'Scale fixture' },
+    `staging-person-mutual-${suffix}`,
+  );
+  const target = addPerson(
+    {
+      name: `Target Fixture ${suffix}`,
+      type: 'target',
+      title: 'Fictional decision maker',
+      companyId: company.id,
+      mutualPersonIds: [mutual.id],
+      notes: 'Scale fixture',
+    },
+    `staging-person-target-${suffix}`,
+  );
+  const route = addRoute(
+    {
+      companyId: company.id,
+      targetPersonId: target.id,
+      mutualPersonId: mutual.id,
+      owner: index % 3 === 0 ? 'Jeremy' : index % 2 === 0 ? 'Paul' : 'unassigned',
+      stage: index % 4 === 0 ? 'Intro requested' : 'Found route',
+      notes: 'Deterministic scale fixture',
+    },
+    `staging-route-fixture-${suffix}`,
+  );
+  activities.push(
+    createRouteActivity({
+      id: `staging-activity-fixture-${suffix}`,
+      route,
+      actor: 'staging-seed',
+      type: 'fixture_seeded',
+      summary: 'Deterministic staging fixture created',
+      now,
+    }),
+  );
+}
+
+const owners = defaultOwnerProfiles(now, workspaceId);
+const settings = workspaceSettingsSchema.parse({
+  id: 'settings',
+  timezone: 'Europe/London',
+  updatedAt: now,
+  workspaceId,
+});
+
+const [existingCompanies, existingPeople, existingRoutes, existingActivities, existingOwners, existingSettings] =
+  await Promise.all([
+    repository.list('companies', workspaceId),
+    repository.list('people', workspaceId),
+    repository.list('routes', workspaceId),
+    repository.list('activities', workspaceId),
+    repository.list('owners', workspaceId),
+    repository.list('settings', workspaceId),
+  ]);
+const onlyNew = <T extends { id: string }>(records: T[], existing: T[]) => {
+  const ids = new Set(existing.map((record) => record.id));
+  return records.filter((record) => !ids.has(record.id));
+};
+await repository.upsertTransaction({
+  companies: onlyNew(companies, existingCompanies),
+  owners: onlyNew(owners, existingOwners),
+  settings: onlyNew([settings], existingSettings),
+});
+await repository.upsertTransaction({ people: onlyNew(people, existingPeople) });
+await repository.upsertTransaction({
+  routes: onlyNew(routes, existingRoutes),
+  activities: onlyNew(activities, existingActivities),
+});
 console.log(
   JSON.stringify({
     projectId: STAGING_PROJECT_ID,
@@ -158,6 +248,8 @@ console.log(
       people: people.length,
       routes: routes.length,
       activities: activities.length,
+      owners: owners.length,
+      settings: 1,
     },
   }),
 );

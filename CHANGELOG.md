@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased - Operational maturity
+
+- Added permanent staging promotion controls, exact release metadata and deployment-artifact verification.
+- Added configurable owner profiles with idempotent route migration, protected Unassigned handling and atomic reassignment.
+- Added server-derived shared reminders, audited snooze/clear/complete/reschedule actions and a responsive reminder centre.
+- Added opaque cursor pagination, server-derived route metrics, normalized prefix search and query-key migration.
+- Added RSA-OAEP/AES-GCM Hostinger recovery archives with validated manifests, exclusive locking and two-copy retention.
+- Added normalized identity integrity checks, focused owner/page/reminder API modules and expanded emulator/browser coverage.
+
 ## 2.1.0 - 2026-07-10
 
 - Added company-scoped target selection and linked-mutual filtering to route creation, with inline email, URL and date validation.

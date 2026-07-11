@@ -1,0 +1,45 @@
+name: Promote staging to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Exact staging commit SHA approved for production
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  checks: read
+
+concurrency:
+  group: production-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: staging
+      - name: Validate exact staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin main staging --prune
+          STAGING_SHA="$(git rev-parse origin/staging)"
+          MAIN_SHA="$(git rev-parse origin/main)"
+          test "$REQUESTED_SHA" = "$STAGING_SHA"
+          git merge-base --is-ancestor "$MAIN_SHA" "$STAGING_SHA"
+          test -z "$(git status --porcelain)"
+          CONCLUSIONS="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${STAGING_SHA}/check-runs" --jq '[.check_runs[] | select(.name == "verify" or .name == "secrets") | .conclusion]')"
+          node -e 'const values=JSON.parse(process.argv[1]); if(values.length<2 || values.some(value=>value!=="success")) process.exit(1)' "$CONCLUSIONS"
+      - name: Promote by fast-forward only
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
+        run: git push origin "${REQUESTED_SHA}:refs/heads/main"

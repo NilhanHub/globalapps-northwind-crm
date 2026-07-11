@@ -648,4 +648,123 @@ describe('modular API server', () => {
     expect((await app.inject({ method: 'DELETE', url: `/api/companies/${company.id}`, ...auth })).statusCode).toBe(200);
     await app.close();
   });
+
+  it('manages configurable owners, shared reminders and opaque cursor pages', async () => {
+    const { app } = await fixture();
+    const agent = { authorization: 'Bearer agent-secret' };
+    const company = (
+      await app.inject({ method: 'POST', url: '/api/companies', headers: agent, payload: { name: 'Paged Company' } })
+    ).json<{ id: string }>();
+    const mutual = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/people',
+        headers: agent,
+        payload: { name: 'Mutual', type: 'mutual' },
+      })
+    ).json<{ id: string }>();
+    const target = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/people',
+        headers: agent,
+        payload: { name: 'Target', type: 'target', companyId: company.id, mutualPersonIds: [mutual.id] },
+      })
+    ).json<{ id: string }>();
+    const route = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/routes',
+        headers: agent,
+        payload: { companyId: company.id, targetPersonId: target.id, mutualPersonId: mutual.id },
+      })
+    ).json<{ id: string; ownerId: string; version: number }>();
+    expect(route.ownerId).toBe('owner-unassigned');
+    expect((await app.inject({ method: 'GET', url: '/api/owners', headers: agent })).json()).toHaveLength(5);
+    const duplicateOwner = await app.inject({
+      method: 'POST',
+      url: '/api/owners',
+      headers: agent,
+      payload: { displayName: 'Paul' },
+    });
+    expect(duplicateOwner.statusCode).toBe(409);
+    const owner = (
+      await app.inject({ method: 'POST', url: '/api/owners', headers: agent, payload: { displayName: 'Morgan' } })
+    ).json<{ id: string; version: number }>();
+    const reorderedOwner = (
+      await app.inject({
+        method: 'PATCH',
+        url: `/api/owners/${owner.id}`,
+        headers: { ...agent, 'if-match': String(owner.version) },
+        payload: { sortOrder: 0 },
+      })
+    ).json<{ id: string; version: number }>();
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/owners', headers: agent })).json<Array<{ id: string }>>()[0]!.id,
+    ).toBe(owner.id);
+    const assigned = await app.inject({
+      method: 'PATCH',
+      url: `/api/routes/${route.id}`,
+      headers: { ...agent, 'if-match': String(route.version) },
+      payload: { ownerId: owner.id, dueDate: '2020-01-01', nextAction: 'Follow up' },
+    });
+    expect(assigned.statusCode).toBe(200);
+    const reminders = await app.inject({ method: 'GET', url: '/api/reminders', headers: agent });
+    expect(reminders.json<{ items: Array<{ category: string }> }>().items.map((item) => item.category)).toContain(
+      'overdue',
+    );
+    const snooze = await app.inject({
+      method: 'POST',
+      url: `/api/routes/${route.id}/actions`,
+      headers: agent,
+      payload: { action: 'snooze_reminder', until: new Date(Date.now() + 86_400_000).toISOString() },
+    });
+    expect(snooze.statusCode).toBe(200);
+    expect(
+      (await app.inject({ method: 'GET', url: '/api/reminders', headers: agent })).json<{ items: unknown[] }>().items,
+    ).toHaveLength(0);
+    const refusedDeactivation = await app.inject({
+      method: 'POST',
+      url: `/api/owners/${owner.id}/deactivate`,
+      headers: agent,
+      payload: { version: reorderedOwner.version },
+    });
+    expect(refusedDeactivation.statusCode).toBe(409);
+    const deactivated = await app.inject({
+      method: 'POST',
+      url: `/api/owners/${owner.id}/deactivate`,
+      headers: agent,
+      payload: { version: reorderedOwner.version, replacementOwnerId: 'owner-unassigned' },
+    });
+    expect(deactivated.json()).toMatchObject({ owner: { active: false }, reassignedRouteCount: 1 });
+    const reassignedRoute = (await app.inject({ method: 'GET', url: '/api/routes', headers: agent }))
+      .json<Array<{ id: string; ownerId: string }>>()
+      .find((candidate) => candidate.id === route.id)!;
+    expect(reassignedRoute.ownerId).toBe('owner-unassigned');
+    const rescheduled = await app.inject({
+      method: 'POST',
+      url: `/api/routes/${route.id}/actions`,
+      headers: agent,
+      payload: { action: 'reschedule_next_action', followUpDate: '2027-01-15' },
+    });
+    expect(rescheduled.json()).toMatchObject({ route: { dueDate: '2027-01-15' } });
+    const completed = await app.inject({
+      method: 'POST',
+      url: `/api/routes/${route.id}/actions`,
+      headers: agent,
+      payload: { action: 'complete_next_action' },
+    });
+    expect(completed.json()).toMatchObject({ route: { dueDate: '', nextAction: '' } });
+    const page = await app.inject({ method: 'GET', url: '/api/companies/page?limit=1', headers: agent });
+    expect(page.statusCode).toBe(200);
+    expect(page.json()).toMatchObject({ hasMore: false, nextCursor: null, items: [{ id: company.id }] });
+    const invalidCursor = await app.inject({
+      method: 'GET',
+      url: '/api/companies/page?limit=1&cursor=not-a-cursor',
+      headers: agent,
+    });
+    expect(invalidCursor.statusCode).toBe(400);
+    expect(invalidCursor.json()).toMatchObject({ error: { code: 'INVALID_CURSOR' } });
+    await app.close();
+  });
 });
