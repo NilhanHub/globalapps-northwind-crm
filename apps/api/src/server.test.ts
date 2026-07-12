@@ -815,9 +815,30 @@ describe('modular API server', () => {
       payload: { action: 'complete_next_action' },
     });
     expect(completed.json()).toMatchObject({ route: { dueDate: '', nextAction: '' } });
+    const laterCompany = (
+      await app.inject({ method: 'POST', url: '/api/companies', headers: agent, payload: { name: 'Zulu Systems' } })
+    ).json<{ id: string }>();
     const page = await app.inject({ method: 'GET', url: '/api/companies/page?limit=1', headers: agent });
     expect(page.statusCode).toBe(200);
-    expect(page.json()).toMatchObject({ hasMore: false, nextCursor: null, items: [{ id: company.id }] });
+    expect(page.json()).toMatchObject({ hasMore: true, items: [{ id: company.id }] });
+    const searchPage = await app.inject({
+      method: 'GET',
+      url: '/api/companies/page?limit=1&q=zulu',
+      headers: agent,
+    });
+    expect(searchPage.statusCode).toBe(200);
+    expect(searchPage.json()).toMatchObject({
+      hasMore: false,
+      nextCursor: null,
+      items: [{ id: laterCompany.id, name: 'Zulu Systems' }],
+    });
+    const mismatchedCursor = await app.inject({
+      method: 'GET',
+      url: `/api/companies/page?limit=1&q=zulu&cursor=${encodeURIComponent(page.json<{ nextCursor: string }>().nextCursor)}`,
+      headers: agent,
+    });
+    expect(mismatchedCursor.statusCode).toBe(400);
+    expect(mismatchedCursor.json()).toMatchObject({ error: { code: 'INVALID_CURSOR' } });
     const invalidCursor = await app.inject({
       method: 'GET',
       url: '/api/companies/page?limit=1&cursor=not-a-cursor',

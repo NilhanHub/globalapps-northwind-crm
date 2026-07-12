@@ -6,7 +6,7 @@ Core reads: `GET /api/health`, `/api/auth/session`, `/api/bootstrap`, `/api/comp
 
 Paginated reads use opaque query-bound cursors and return `{ items, nextCursor, hasMore }`: `GET /api/companies/page`, `/api/people/page`, `/api/routes/page` and `/api/activities/page`. The default page size is 50 and the maximum is 100. `GET /api/search` performs normalized prefix search and `GET /api/routes/metrics` derives workspace-wide metrics independently of the loaded page.
 
-Operational reads: `GET /api/live`, `/api/ready`, `/api/workspace/revision` and authenticated `/api/diagnostics`. Health responses expose release version, commit, build time, repository type, sanitized Firestore database ID, application readiness and a sanitized backup state/count/age summary. Backup warnings remain advisory so a recovery-system failure cannot take the CRM itself offline.
+Operational reads: `GET /api/live`, `/api/ready`, `/api/workspace/revision` and authenticated `/api/diagnostics`. Health responses expose release version, commit, build time, repository type, sanitized Firestore database ID, application readiness and a sanitized backup state/count/age summary. Production commit and build time come only from the generated clean-checkout release artifact; production fails closed if that artifact is absent or invalid. Backup warnings remain advisory so a recovery-system failure cannot take the CRM itself offline.
 
 Authenticated `GET /api/openapi.json` is generated from the shared contract registry in `packages/api-client`.
 

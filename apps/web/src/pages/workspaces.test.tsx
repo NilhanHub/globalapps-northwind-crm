@@ -90,14 +90,26 @@ afterEach(() => {
 
 describe('CRM workspaces', () => {
   it('renders a searchable company command surface', () => {
+    const onQueryChange = vi.fn();
     render(
       <MemoryRouter>
-        <CompaniesPage companies={companies as never} routes={routes as never} />
+        <CompaniesPage
+          companies={companies as never}
+          routes={routes as never}
+          query="Weetabix"
+          onQueryChange={onQueryChange}
+          metrics={{ activeAccounts: 51, awaitingReply: 7 }}
+        />
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: 'Companies' })).toBeVisible();
     expect(screen.getByText('Weetabix Food Company')).toBeVisible();
-    expect(screen.getByRole('searchbox', { name: 'Search companies' })).toBeVisible();
+    const search = screen.getByRole('searchbox', { name: 'Search companies' });
+    expect(search).toHaveValue('Weetabix');
+    fireEvent.change(search, { target: { value: 'Northwind' } });
+    expect(onQueryChange).toHaveBeenCalledWith('Northwind');
+    expect(screen.getByText('51')).toBeVisible();
+    expect(screen.getByText('7')).toBeVisible();
   });
 
   it('renders relationship routes in their stage with target and mutual context', () => {

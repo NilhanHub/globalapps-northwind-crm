@@ -13,6 +13,7 @@ export const queryKeys = {
   owners: () => [...queryKeys.all, 'owners'] as const,
   search: (query: string) => [...queryKeys.all, 'search', query] as const,
   companyPages: () => [...queryKeys.all, 'companies', 'pages'] as const,
+  companyPageQuery: (query: string) => [...queryKeys.companyPages(), query.trim()] as const,
   personPages: () => [...queryKeys.all, 'people', 'pages'] as const,
   routePages: () => [...queryKeys.all, 'routes', 'pages'] as const,
   routeMetrics: () => [...queryKeys.all, 'routes', 'metrics'] as const,
@@ -26,12 +27,13 @@ export function useBootstrapQuery(enabled: boolean) {
   });
 }
 
-export function useCompanyPages(enabled: boolean) {
+export function useCompanyPages(enabled: boolean, query = '') {
+  const search = query.trim();
   return useInfiniteQuery({
-    queryKey: queryKeys.companyPages(),
+    queryKey: queryKeys.companyPageQuery(search),
     queryFn: ({ pageParam }) =>
       api.request<Page<Company>>(
-        `/api/companies/page?limit=50${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+        `/api/companies/page?limit=50${search ? `&q=${encodeURIComponent(search)}` : ''}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
       ),
     initialPageParam: '',
     getNextPageParam: (page) => page.nextCursor ?? undefined,

@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "concurrently -n api,web -c burgundy,cyan \"npm run dev -w @northwind/api\" \"npm run dev -w @northwind/web\"",
     "start": "npm run start -w @northwind/api",
-    "build": "npm run build --workspaces --if-present",
+    "build": "node scripts/write-release-metadata.mjs && npm run build --workspaces --if-present",
     "build:hostinger": "cross-env CRM_BUILD_ON_INSTALL=1 npm run build",
     "verify:artifacts": "node scripts/verify-build-artifacts.mjs",
     "postinstall": "node scripts/conditional-postinstall.mjs",

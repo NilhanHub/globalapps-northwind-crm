@@ -20,6 +20,44 @@ test('shared login opens every primary workspace without console errors', async 
   expect(errors).toEqual([]);
 });
 
+test('company search queries the full server-backed directory', async ({ page, isMobile }) => {
+  test.skip(Boolean(isMobile), 'The server-backed search contract is covered once');
+  let capturedQuery = '';
+  await page.route('**/api/companies/page**', async (route) => {
+    const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+    if (!query) return route.continue();
+    capturedQuery = query;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [
+          {
+            id: 'company-remote-search-result',
+            name: 'Zulu Systems',
+            status: 'New',
+            sector: 'Technology',
+            country: 'United Kingdom',
+            contactName: '',
+            version: 1,
+          },
+        ],
+        hasMore: false,
+        nextCursor: null,
+      }),
+    });
+  });
+
+  await page.goto('/login');
+  await page.getByLabel('Username').fill('northwind-e2e');
+  await page.getByLabel('Password').fill('northwind-e2e-passphrase');
+  await page.getByRole('button', { name: 'Open Northwind' }).click();
+  await page.getByRole('searchbox', { name: 'Search companies' }).fill('Zulu');
+
+  await expect(page.getByText('Zulu Systems')).toBeVisible();
+  expect(capturedQuery).toBe('Zulu');
+});
+
 test('owner settings and the shared reminder centre are keyboard-safe', async ({ page, isMobile }) => {
   test.skip(Boolean(isMobile), 'Desktop command bar workflow is covered once');
   await page.goto('/login');

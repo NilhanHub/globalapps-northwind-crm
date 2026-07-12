@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useDeferredValue, useState } from 'react';
 import { Skeleton, Button, Alert } from '@northwind/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -94,12 +94,15 @@ function Workspace({ data }: { data: BootstrapData }) {
   const [dialog, setDialog] = useState<EntityDialogKind>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [companyQuery, setCompanyQuery] = useState('');
+  const deferredCompanyQuery = useDeferredValue(companyQuery.trim());
   const revision = useWorkspaceRevisionQuery(true, data.workspaceRevision?.revision ?? '');
-  const companyPages = useCompanyPages(true);
+  const companyPages = useCompanyPages(true, deferredCompanyQuery);
   const routePages = useRoutePages(true);
   const personPages = usePersonPages(true);
   const routeMetrics = useRouteMetrics(true);
-  const pagedCompanies = companyPages.data?.pages.flatMap((page) => page.items) ?? data.companies;
+  const pagedCompanies =
+    companyPages.data?.pages.flatMap((page) => page.items) ?? (deferredCompanyQuery ? [] : data.companies);
   const pagedRoutes = routePages.data?.pages.flatMap((page) => page.items) ?? data.routes;
   const pagedPeople = personPages.data?.pages.flatMap((page) => page.items) ?? data.people;
   async function create(kind: Exclude<EntityDialogKind, null>, values: Record<string, unknown>) {
@@ -139,8 +142,20 @@ function Workspace({ data }: { data: BootstrapData }) {
             path="/companies"
             element={
               <CompaniesPage
-                companies={pagedCompanies}
+                companies={companyQuery.trim() === deferredCompanyQuery ? pagedCompanies : []}
                 routes={data.routes}
+                query={companyQuery}
+                onQueryChange={setCompanyQuery}
+                searching={
+                  companyQuery.trim() !== deferredCompanyQuery ||
+                  (Boolean(deferredCompanyQuery) && companyPages.isFetching && !companyPages.isFetchingNextPage)
+                }
+                metrics={{
+                  activeAccounts: data.companies.filter((company) => !company.archivedAt).length,
+                  awaitingReply: data.companies.filter(
+                    (company) => !company.archivedAt && company.status === 'Awaiting reply',
+                  ).length,
+                }}
                 onCreate={() => setDialog('company')}
                 hasMore={companyPages.hasNextPage}
                 loadingMore={companyPages.isFetchingNextPage}

@@ -9,37 +9,79 @@ on:
         type: string
 
 permissions:
-  contents: write
-  checks: read
+  contents: read
+  actions: read
 
 concurrency:
   group: production-promotion
   cancel-in-progress: false
 
 jobs:
-  promote:
+  validate:
     runs-on: ubuntu-latest
-    environment: production
+    outputs:
+      approved-sha: ${{ steps.release.outputs.approved-sha }}
+      main-sha: ${{ steps.release.outputs.main-sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
           ref: staging
-      - name: Validate exact staging release
+      - name: Validate the exact staging push release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
           REQUESTED_SHA: ${{ inputs.sha }}
         run: |
           set -euo pipefail
+          [[ "$REQUESTED_SHA" =~ ^[a-f0-9]{40}$ ]]
           git fetch origin main staging --prune
           STAGING_SHA="$(git rev-parse origin/staging)"
           MAIN_SHA="$(git rev-parse origin/main)"
           test "$REQUESTED_SHA" = "$STAGING_SHA"
           git merge-base --is-ancestor "$MAIN_SHA" "$STAGING_SHA"
           test -z "$(git status --porcelain)"
-          CONCLUSIONS="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${STAGING_SHA}/check-runs" --jq '[.check_runs[] | select(.name == "verify" or .name == "secrets") | .conclusion]')"
-          node -e 'const values=JSON.parse(process.argv[1]); if(values.length<2 || values.some(value=>value!=="success")) process.exit(1)' "$CONCLUSIONS"
+
+          RUN_ID="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=staging&event=push&head_sha=${STAGING_SHA}&status=completed&per_page=20" --jq ".workflow_runs[] | select(.head_sha == \"${STAGING_SHA}\" and .conclusion == \"success\") | .id" | head -n 1)"
+          test -n "$RUN_ID"
+          JOBS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs?per_page=100" --jq '[.jobs[] | {name, conclusion}]')"
+          node -e '
+            const jobs = JSON.parse(process.argv[1]);
+            for (const name of ["secrets", "verify", "staging-live"])
+              if (!jobs.some((job) => job.name === name && job.conclusion === "success")) process.exit(1);
+          ' "$JOBS"
+
+          echo "approved-sha=$STAGING_SHA" >> "$GITHUB_OUTPUT"
+          echo "main-sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
+
+  promote:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          ref: staging
       - name: Promote by fast-forward only
         env:
-          REQUESTED_SHA: ${{ inputs.sha }}
-        run: git push origin "${REQUESTED_SHA}:refs/heads/main"
+          APPROVED_SHA: ${{ needs.validate.outputs.approved-sha }}
+          VALIDATED_MAIN_SHA: ${{ needs.validate.outputs.main-sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin main staging --prune
+          test "$(git rev-parse origin/staging)" = "$APPROVED_SHA"
+          test "$(git rev-parse origin/main)" = "$VALIDATED_MAIN_SHA"
+          git merge-base --is-ancestor "$VALIDATED_MAIN_SHA" "$APPROVED_SHA"
+          git push --atomic \
+            --force-with-lease=refs/heads/main:${VALIDATED_MAIN_SHA} \
+            --force-with-lease=refs/heads/staging:${APPROVED_SHA} \
+            origin \
+            "${APPROVED_SHA}:refs/heads/main" \
+            "${APPROVED_SHA}:refs/heads/staging"
+      - name: Verify exact production deployment
+        env:
+          APPROVED_SHA: ${{ needs.validate.outputs.approved-sha }}
+        run: node scripts/verify-live-release.mjs https://crm.globalapps.world "$APPROVED_SHA" 75 15

@@ -35,6 +35,7 @@ nul
 *.log
 *.tmp
 *.tsbuildinfo
+release-metadata.json
 .tmp-*
 .verify-*
 

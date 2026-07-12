@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Archive, LayoutGrid, List, Plus } from 'lucide-react';
-import { Badge, Button, Toolbar, SearchField, EmptyState, Card, IconButton } from '@northwind/ui';
+import { Badge, Button, Toolbar, SearchField, EmptyState, Card, IconButton, Skeleton } from '@northwind/ui';
 import type { Company, Route } from '@northwind/domain';
 import { Link } from 'react-router-dom';
 import { PageHeader } from '../components/page-header';
@@ -11,6 +11,10 @@ const statusTone = (status: string) =>
 export function CompaniesPage({
   companies,
   routes,
+  query,
+  onQueryChange,
+  searching = false,
+  metrics,
   onCreate,
   hasMore,
   loadingMore,
@@ -18,38 +22,30 @@ export function CompaniesPage({
 }: {
   companies: Company[];
   routes: Route[];
+  query: string;
+  onQueryChange: (query: string) => void;
+  searching?: boolean;
+  metrics: { activeAccounts: number; awaitingReply: number };
   onCreate?: () => void;
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
 }) {
-  const [query, setQuery] = useState('');
   const [view, setView] = useState<'grid' | 'table'>('grid');
-  const visible = useMemo(
-    () =>
-      companies.filter(
-        (company) =>
-          !company.archivedAt &&
-          [company.name, company.sector, company.country, company.contactName]
-            .join(' ')
-            .toLowerCase()
-            .includes(query.toLowerCase()),
-      ),
-    [companies, query],
-  );
+  const visible = useMemo(() => companies.filter((company) => !company.archivedAt), [companies]);
 
   const activeRoutes = routes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage));
 
   return (
-    <section className="workspace">
+    <section className="workspace" aria-busy={searching}>
       <PageHeader
         eyebrow="Account intelligence"
         title="Companies"
         description="Signals, conversations and warm paths—prioritised for the next useful move."
         metrics={[
-          { label: 'Active accounts', value: visible.length },
+          { label: 'Active accounts', value: metrics.activeAccounts },
           { label: 'Warm routes', value: activeRoutes.length },
-          { label: 'Awaiting reply', value: companies.filter((company) => company.status === 'Awaiting reply').length },
+          { label: 'Awaiting reply', value: metrics.awaitingReply },
         ]}
         actions={
           <Button onClick={onCreate}>
@@ -61,9 +57,9 @@ export function CompaniesPage({
       <Toolbar className="workspace-toolbar mb-6">
         <SearchField
           aria-label="Search companies"
-          placeholder="Search companies, sectors, contacts…"
+          placeholder="Search company names…"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => onQueryChange(event.target.value)}
         />
         <div className="flex items-center gap-4">
           <div className="view-switch" role="group" aria-label="Company view">
@@ -88,7 +84,17 @@ export function CompaniesPage({
         </div>
       </Toolbar>
 
-      {visible.length ? (
+      <div className="sr-only" role="status" aria-live="polite">
+        {searching ? 'Searching all company records…' : query ? `${visible.length} matching companies loaded.` : ''}
+      </div>
+
+      {searching && !visible.length ? (
+        <div className="company-grid" aria-label="Searching companies">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
+      ) : visible.length ? (
         view === 'grid' ? (
           <div className="company-grid">
             {visible.map((company) => (
@@ -151,14 +157,12 @@ export function CompaniesPage({
       ) : (
         <EmptyState
           title={query ? 'No matching companies' : 'Your company desk is clear'}
-          description={
-            query ? 'Try another name, sector or contact.' : 'Add the first account to start building warm routes.'
-          }
+          description={query ? 'Try another company name.' : 'Add the first account to start building warm routes.'}
           icon={<LayoutGrid size={24} />}
           action={!query ? <Button onClick={onCreate}>Add company</Button> : null}
         />
       )}
-      {hasMore ? (
+      {hasMore && !searching ? (
         <div className="page-load-more">
           <Button variant="secondary" disabled={loadingMore} onClick={onLoadMore}>
             {loadingMore ? 'Loading…' : 'Load more companies'}

@@ -38,12 +38,12 @@ Create the runtime key only after verifying the active Google identity. Save it 
 2. Run `npm run data:integrity`, create a current Firestore export and verify that export. The JSON migration command is not a production verification command.
 3. Before the first operational-maturity release, run `npm run data:migrate:query-keys` and `npm run data:migrate:owners`, then rerun integrity. Both migrations are idempotent.
 4. Deploy the exact commit to `crm-staging.globalapps.world` and complete login, API, responsive, accessibility and reversible-write checks against staging seed data.
-5. Promote that unchanged commit to production. Record `CRM_COMMIT_SHA`, `CRM_BUILD_TIME` and `CRM_APP_VERSION` in the Hostinger environment.
+5. Promote that unchanged commit to production. The build writes `release-metadata.json` from the clean Git checkout. Production refuses to start without that valid artifact, and `/api/health` never substitutes manually entered commit or build-time variables for it. `CRM_APP_VERSION` may still provide the release label.
 6. Verify `/api/live`, `/api/ready`, `/api/health`, login, bootstrap and a clearly labelled reversible test record.
 7. Run `npm run ops:footprint` against reviewed Hostinger deployment paths. Retain three deployable releases, cap logs at 14 days and delete only documented caches.
 8. If deployment fails before users resume work, redeploy the previous build. Firestore remains authoritative; never roll data back to the old JSON files.
 
-`staging` is permanent and is the base branch for dependency updates and release candidates. Use the manual **Promote staging to production** workflow with the exact approved staging SHA. It refuses a SHA that is not the current staging head, a divergent main history, a dirty tree or missing CI success. Production must report that same SHA from `/api/health`.
+`staging` is permanent and is the base branch for dependency updates and release candidates. On every staging push, CI waits for Hostinger and proves that staging serves the exact commit with Firestore readiness, two healthy encrypted backups, no-store HTML/API responses and reachable fingerprinted assets. Use the manual **Promote staging to production** workflow with that exact approved SHA. It accepts only the successful staging push run, rechecks both branch heads immediately before a fast-forward-only push, and then waits for production to serve the same healthy release.
 
 GitHub's current private-repository plan does not expose server-side branch protection for this repository. Until that plan changes, the promotion workflow is the enforced release procedure and administrators must not push directly to `main`. Re-enable native branch protection as soon as GitHub makes it available.
 

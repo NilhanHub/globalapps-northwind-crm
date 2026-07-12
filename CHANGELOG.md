@@ -13,6 +13,8 @@
 - Fixed People table assistive text escaping its scroll container at tablet and mobile widths.
 - Fixed populated-dashboard contrast and made horizontally scrollable metric summaries keyboard accessible.
 - Added normalized identity integrity checks, focused owner/page/reminder API modules and expanded emulator/browser coverage.
+- Fixed Companies search so it queries the complete paginated directory instead of only the records already loaded in the browser, with authoritative global metrics and loading feedback.
+- Hardened release promotion to require the exact successful staging push, verify the live staging and production assets, and derive health metadata from the clean deployment commit.
 
 ## 2.1.0 - 2026-07-10
 
