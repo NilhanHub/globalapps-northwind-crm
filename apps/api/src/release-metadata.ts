@@ -5,6 +5,18 @@ export type GeneratedReleaseMetadata = {
   treeState?: 'clean' | 'dirty';
 };
 
+declare const __NORTHWIND_BUILD_VERSION__: string;
+declare const __NORTHWIND_BUILD_COMMIT_SHA__: string;
+declare const __NORTHWIND_BUILD_TIME__: string;
+declare const __NORTHWIND_BUILD_TREE_STATE__: 'clean' | 'dirty';
+
+export const embeddedReleaseMetadata: GeneratedReleaseMetadata = {
+  version: typeof __NORTHWIND_BUILD_VERSION__ === 'string' ? __NORTHWIND_BUILD_VERSION__ : '',
+  commitSha: typeof __NORTHWIND_BUILD_COMMIT_SHA__ === 'string' ? __NORTHWIND_BUILD_COMMIT_SHA__ : '',
+  buildTime: typeof __NORTHWIND_BUILD_TIME__ === 'string' ? __NORTHWIND_BUILD_TIME__ : '',
+  treeState: typeof __NORTHWIND_BUILD_TREE_STATE__ === 'string' ? __NORTHWIND_BUILD_TREE_STATE__ : 'dirty',
+};
+
 const clean = (value: unknown) => String(value ?? '').trim();
 const validCommit = (value: string) => /^[a-f0-9]{40}$/i.test(value);
 const validTimestamp = (value: string) => Boolean(value) && !Number.isNaN(Date.parse(value));

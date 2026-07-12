@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { stdout } from 'node:process';
+import { env, exit, platform, stdout } from 'node:process';
 
 const runGit = (...arguments_) => execFileSync('git', arguments_, { encoding: 'utf8', windowsHide: true }).trim();
 const packageMetadata = JSON.parse(await readFile('package.json', 'utf8'));
@@ -16,3 +16,15 @@ const metadata = {
 };
 await writeFile('release-metadata.json', `${JSON.stringify(metadata, null, 2)}\n`, { mode: 0o600 });
 stdout.write(`${JSON.stringify({ ok: true, ...metadata })}\n`);
+const build = spawnSync('npm', ['run', 'build', '--workspaces', '--if-present'], {
+  stdio: 'inherit',
+  shell: platform === 'win32',
+  env: {
+    ...env,
+    NORTHWIND_BUILD_VERSION: metadata.version,
+    NORTHWIND_BUILD_COMMIT_SHA: metadata.commitSha,
+    NORTHWIND_BUILD_TIME: metadata.buildTime,
+    NORTHWIND_BUILD_TREE_STATE: metadata.treeState,
+  },
+});
+if (build.status !== 0) exit(build.status ?? 1);

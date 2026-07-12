@@ -19,6 +19,9 @@ if (
 )
   throw new Error('Generated release metadata is invalid');
 if (env.CI && release.treeState !== 'clean') throw new Error('CI release metadata must come from a clean tree');
+const apiBundle = await readFile('apps/api/dist/index.js', 'utf8');
+if (!apiBundle.includes(release.commitSha) || !apiBundle.includes(release.buildTime))
+  throw new Error('Compiled API does not embed the generated release identity');
 
 stdout.write(
   `${JSON.stringify({ ok: true, required, assetCount: assets.length, release: { commitSha: release.commitSha, buildTime: release.buildTime, treeState: release.treeState } })}\n`,

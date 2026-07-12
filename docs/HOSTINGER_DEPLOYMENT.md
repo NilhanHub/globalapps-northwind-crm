@@ -38,7 +38,7 @@ Create the runtime key only after verifying the active Google identity. Save it 
 2. Run `npm run data:integrity`, create a current Firestore export and verify that export. The JSON migration command is not a production verification command.
 3. Before the first operational-maturity release, run `npm run data:migrate:query-keys` and `npm run data:migrate:owners`, then rerun integrity. Both migrations are idempotent.
 4. Deploy the exact commit to `crm-staging.globalapps.world` and complete login, API, responsive, accessibility and reversible-write checks against staging seed data.
-5. Promote that unchanged commit to production. The build writes `release-metadata.json` from the clean Git checkout. Production refuses to start without that valid artifact, and `/api/health` never substitutes manually entered commit or build-time variables for it. `CRM_APP_VERSION` may still provide the release label.
+5. Promote that unchanged commit to production. The build derives `release-metadata.json` from the clean Git checkout and embeds the same identity inside the compiled API bundle. Production refuses to start without valid clean embedded metadata, and `/api/health` never substitutes manually entered commit or build-time variables for it. `CRM_APP_VERSION` may still provide the release label.
 6. Verify `/api/live`, `/api/ready`, `/api/health`, login, bootstrap and a clearly labelled reversible test record.
 7. Run `npm run ops:footprint` against reviewed Hostinger deployment paths. Retain three deployable releases, cap logs at 14 days and delete only documented caches.
 8. If deployment fails before users resume work, redeploy the previous build. Firestore remains authoritative; never roll data back to the old JSON files.

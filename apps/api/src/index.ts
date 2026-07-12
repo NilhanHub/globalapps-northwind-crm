@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { createHash, createPublicKey } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 import { createAuthService, resolvePasswordHash } from './auth/auth-service.js';
 import { migrateDataStores } from './migration.js';
@@ -11,7 +11,7 @@ import { createFirestoreSessionRepository } from './repositories/firestore-sessi
 import { createFirebaseFirestore } from './firebase.js';
 import { resolveRepositoryConfig } from './runtime-config.js';
 import { createApp } from './server.js';
-import { resolveReleaseMetadata, type GeneratedReleaseMetadata } from './release-metadata.js';
+import { embeddedReleaseMetadata, resolveReleaseMetadata } from './release-metadata.js';
 
 const root = resolve(process.cwd());
 const dataDir = resolve(process.env.CRM_DATA_DIR || resolve(root, 'data'));
@@ -80,18 +80,11 @@ if (backupConfigured) {
   if (backupPublicKey.asymmetricKeyType !== 'rsa' || (backupPublicKey.asymmetricKeyDetails?.modulusLength ?? 0) < 4096)
     throw new Error('CRM_BACKUP_PUBLIC_KEY_BASE64 must contain an RSA-4096 or stronger public key');
 }
-const generatedRelease = (() => {
-  try {
-    return JSON.parse(readFileSync(resolve(root, 'release-metadata.json'), 'utf8')) as GeneratedReleaseMetadata;
-  } catch {
-    return undefined;
-  }
-})();
 const {
   version: releaseVersion,
   commitSha: releaseCommit,
   buildTime: releaseBuildTime,
-} = resolveReleaseMetadata(process.env, generatedRelease);
+} = resolveReleaseMetadata(process.env, embeddedReleaseMetadata);
 if (process.env.NODE_ENV === 'production' && (releaseCommit === 'unknown' || releaseBuildTime === 'unknown'))
   throw new Error('Production requires CRM_COMMIT_SHA and CRM_BUILD_TIME release metadata');
 
