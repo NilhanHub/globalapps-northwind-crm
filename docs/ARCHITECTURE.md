@@ -12,7 +12,7 @@ Fastify registration is divided into focused import, maintenance, owner, paginat
 
 Production data lives beneath `workspaces/default/{companies,people,routes,activities,sessions,importJobs,owners,settings}` with a lightweight workspace revision document used for change detection. Only the Fastify server holds Google credentials; Firestore browser rules deny all direct access. Repository transactions reject stale versions before committing multi-record changes and increment the workspace revision atomically.
 
-The legacy root server and static frontend remain as a compatibility reference until parity evidence is accepted. New development belongs in workspaces.
+The legacy root server and static frontend remain as an approved compatibility surface. React/API parity has been accepted; all new development belongs in the workspaces. Do not remove the compatibility surface without an explicitly approved migration and replacement evidence.
 
 ## Records and concurrency
 
