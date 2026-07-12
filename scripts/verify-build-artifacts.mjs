@@ -1,6 +1,7 @@
 import { access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { env, stdout } from 'node:process';
+import { classifyBuildTreeState } from './release-build-state.mjs';
 
 const required = ['app.js', 'apps/api/dist/index.js', 'apps/web/dist/index.html', 'release-metadata.json'];
 for (const path of required) await access(path, constants.R_OK);
@@ -18,6 +19,12 @@ if (
   !['clean', 'dirty'].includes(release.treeState)
 )
   throw new Error('Generated release metadata is invalid');
+const classifiedState = classifyBuildTreeState(Array.isArray(release.dirtyPaths) ? release.dirtyPaths : []);
+if (
+  classifiedState.treeState !== release.treeState ||
+  JSON.stringify(classifiedState.unexpectedDirtyPaths) !== JSON.stringify(release.unexpectedDirtyPaths ?? [])
+)
+  throw new Error('Generated release metadata misclassifies tracked build drift');
 if (env.CI && release.treeState !== 'clean') throw new Error('CI release metadata must come from a clean tree');
 const apiBundle = await readFile('apps/api/dist/index.js', 'utf8');
 if (!apiBundle.includes(release.commitSha) || !apiBundle.includes(release.buildTime))

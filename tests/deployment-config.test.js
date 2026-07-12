@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { classifyBuildTreeState } from '../scripts/release-build-state.mjs';
+
+test('release builds tolerate only Hostinger lockfile normalization', () => {
+  assert.deepEqual(classifyBuildTreeState([]), { treeState: 'clean', unexpectedDirtyPaths: [] });
+  assert.deepEqual(classifyBuildTreeState(['package-lock.json']), { treeState: 'clean', unexpectedDirtyPaths: [] });
+  assert.deepEqual(classifyBuildTreeState(['package-lock.json', 'apps/api/src/index.ts']), {
+    treeState: 'dirty',
+    unexpectedDirtyPaths: ['apps/api/src/index.ts'],
+  });
+});
 
 test('Hostinger builds once behind an explicit install flag before starting the API entry file', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));

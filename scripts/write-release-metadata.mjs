@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { env, exit, platform, stdout } from 'node:process';
+import { classifyBuildTreeState } from './release-build-state.mjs';
 
 const runGit = (...arguments_) => execFileSync('git', arguments_, { encoding: 'utf8', windowsHide: true }).trim();
 const packageMetadata = JSON.parse(await readFile('package.json', 'utf8'));
@@ -15,7 +16,7 @@ const dirtyPaths = [
   .filter(Boolean)
   .filter((value, index, values) => values.indexOf(value) === index)
   .sort();
-const treeState = dirtyPaths.length ? 'dirty' : 'clean';
+const { treeState, unexpectedDirtyPaths } = classifyBuildTreeState(dirtyPaths);
 const metadata = {
   schemaVersion: 1,
   version: String(packageMetadata.version),
@@ -23,6 +24,7 @@ const metadata = {
   buildTime: new Date().toISOString(),
   treeState,
   dirtyPaths,
+  unexpectedDirtyPaths,
 };
 await writeFile('release-metadata.json', `${JSON.stringify(metadata, null, 2)}\n`, { mode: 0o600 });
 stdout.write(`${JSON.stringify({ ok: true, ...metadata })}\n`);
