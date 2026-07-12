@@ -2,7 +2,7 @@
 
 Northwind currently provides secured shared access. It does not implement individual users, roles or tenant administration.
 
-- Passwords are stored as salted `scrypt` hashes (`CRM_PASSWORD_SCRYPT`).
+- Passwords are stored as salted `scrypt` hashes. Local environments normally use `CRM_PASSWORD_SCRYPT`; Hostinger uses the base64-safe `CRM_PASSWORD_SCRYPT_BASE64` form documented in the canonical deployment runbook.
 - Session and CSRF tokens are random; only their hashes are persisted.
 - Session cookies are `HttpOnly`, `SameSite=Strict`, scoped to `/`, and `Secure` in production.
 - Browser writes require `X-CSRF-Token`.
@@ -17,4 +17,4 @@ npm run auth:hash-password
 Remove-Item Env:CRM_PASSWORD_PLAINTEXT
 ```
 
-`AuthProvider` and `RequestContext` are replaceable boundaries for a future identity provider. Shared login must not be represented as per-user security.
+Sessions are browser-session scoped and expire after 16 hours of inactivity even when a browser restores an old tab. `AuthProvider` and `RequestContext` are replaceable boundaries for a future identity provider. Shared login must not be represented as per-user security.

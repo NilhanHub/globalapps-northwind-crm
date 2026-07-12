@@ -2,6 +2,8 @@
 
 ## Unreleased - Operational maturity
 
+- Added a canonical AI-maintainer handbook, documentation map, resolved-lessons registry, symptom-led troubleshooting, curated incident reports and ADR governance.
+- Added a zero-dependency documentation gate that validates local links and anchors, canonical-source routing, lesson/incident/ADR contracts and independence from ignored evidence.
 - Added permanent staging promotion controls, exact release metadata and deployment-artifact verification.
 - Added configurable owner profiles with idempotent route migration, protected Unassigned handling and atomic reassignment.
 - Added server-derived shared reminders, audited snooze/clear/complete/reschedule actions and a responsive reminder centre.

@@ -2,6 +2,8 @@
 
 Northwind is a relationship-intelligence CRM for turning trusted mutual contacts into warm introductions. It is a typed React application with an authenticated Node API, Firestore production persistence and conflict-safe JSON development persistence.
 
+Maintainers and AI agents should start with the [canonical documentation map](docs/README.md) and [AI agent handbook](docs/AI_AGENT_HANDBOOK.md). They distinguish normative guidance, operational runbooks, current limitations, dated status and historical lessons.
+
 ## Architecture
 
 - `apps/web` — React, Vite and TypeScript product UI.
@@ -54,6 +56,7 @@ npm run data:verify-export validate an export's schema, hashes and relationships
 npm run data:migrate:owners idempotently seed owner profiles and map existing routes
 npm run data:migrate:query-keys idempotently fill normalized Firestore paging/search keys
 npm run ops:footprint report deploy files, bytes, caches and threshold usage
+npm run docs:check validate documentation links, structure and canonical sources
 npm run backup:hostinger:run create and retain a validated encrypted backup
 npm run backup:hostinger:status report backup count, age and filenames
 npm run backup:generate-trigger create a private 256-bit trigger at an explicit absolute path outside the repository and print only its hash
@@ -68,7 +71,7 @@ npm run backup:restore:firestore restore safely into an explicit named temporary
 
 This release uses one shared account. It is an access gate, not user isolation. Sessions store only hashed tokens in Firestore, use browser-session cookies, slide to 16 hours after activity, and require per-session CSRF tokens. Production cookies are `HttpOnly`, `SameSite=Strict` and `Secure`. Desktop agents use `Authorization: Bearer <CRM_AGENT_TOKEN>` and may provide a sanitized `X-Agent-Name`.
 
-Do not commit `.env`, service-account material, agent tokens, session files or generated data. See [SECURITY.md](SECURITY.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DATA_RECOVERY.md](docs/DATA_RECOVERY.md), [docs/HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md) and [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
+Do not commit `.env`, service-account material, agent tokens, session files or generated data. See [SECURITY.md](SECURITY.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DATA_RECOVERY.md](docs/DATA_RECOVERY.md), [docs/HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md), [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) and [docs/DEPENDENCY_EXCEPTIONS.md](docs/DEPENDENCY_EXCEPTIONS.md).
 
 Current cloud provisioning and cutover status is recorded in [docs/CLOUD_STATUS.md](docs/CLOUD_STATUS.md).
 
