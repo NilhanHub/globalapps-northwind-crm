@@ -6,13 +6,23 @@ const runGit = (...arguments_) => execFileSync('git', arguments_, { encoding: 'u
 const packageMetadata = JSON.parse(await readFile('package.json', 'utf8'));
 const commitSha = runGit('rev-parse', 'HEAD');
 if (!/^[a-f0-9]{40}$/i.test(commitSha)) throw new Error('Git did not return a full commit SHA');
-const treeState = runGit('status', '--porcelain', '--untracked-files=no') ? 'dirty' : 'clean';
+const dirtyPaths = [
+  runGit('diff', '--name-only', 'HEAD', '--'),
+  runGit('diff', '--cached', '--name-only', 'HEAD', '--'),
+]
+  .flatMap((value) => value.split(/\r?\n/))
+  .map((value) => value.trim())
+  .filter(Boolean)
+  .filter((value, index, values) => values.indexOf(value) === index)
+  .sort();
+const treeState = dirtyPaths.length ? 'dirty' : 'clean';
 const metadata = {
   schemaVersion: 1,
   version: String(packageMetadata.version),
   commitSha,
   buildTime: new Date().toISOString(),
   treeState,
+  dirtyPaths,
 };
 await writeFile('release-metadata.json', `${JSON.stringify(metadata, null, 2)}\n`, { mode: 0o600 });
 stdout.write(`${JSON.stringify({ ok: true, ...metadata })}\n`);
