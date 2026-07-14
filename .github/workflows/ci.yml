@@ -39,8 +39,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:firestore-emulator
-      - run: npm audit --omit=dev --audit-level=moderate
-      - run: npm audit --audit-level=high
+      - run: npm run audit:dependencies
       - run: npm ci --prefix infra/functions/backup-verifier --ignore-scripts
       - run: npm audit --prefix infra/functions/backup-verifier --audit-level=moderate
       - run: npm run build

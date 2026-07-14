@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "reviewCadenceDays": 7,
+  "exceptions": [
+    {
+      "advisoryId": "GHSA-w5hq-g745-h8pq",
+      "advisoryUrl": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+      "severity": "moderate",
+      "reviewedAt": "2026-07-11",
+      "expiresOn": "2026-08-10",
+      "directDependency": {
+        "name": "firebase-tools",
+        "version": "15.23.0"
+      },
+      "allowedPackages": ["firebase-tools", "gaxios", "uuid"],
+      "expectedVia": [
+        { "from": "firebase-tools", "to": "gaxios" },
+        { "from": "gaxios", "to": "uuid" },
+        { "from": "uuid", "to": "GHSA-W5HQ-G745-H8PQ" }
+      ],
+      "expectedNodes": [
+        {
+          "path": "node_modules/firebase-tools",
+          "version": "15.23.0"
+        },
+        {
+          "path": "node_modules/firebase-tools/node_modules/gaxios",
+          "version": "6.7.1"
+        },
+        {
+          "path": "node_modules/firebase-tools/node_modules/gaxios/node_modules/uuid",
+          "version": "9.0.1"
+        }
+      ],
+      "rationale": "Firebase CLI's affected gaxios path calls uuid.v4() for multipart boundaries; the advisory affects v3, v5 and v6 when caller-supplied buffers are out of bounds. This remains development-only tooling."
+    },
+    {
+      "advisoryId": "GHSA-8988-4f7v-96qf",
+      "advisoryUrl": "https://github.com/advisories/GHSA-8988-4f7v-96qf",
+      "severity": "moderate",
+      "reviewedAt": "2026-07-11",
+      "expiresOn": "2026-08-10",
+      "directDependency": {
+        "name": "firebase-tools",
+        "version": "15.23.0"
+      },
+      "allowedPackages": ["@google-cloud/pubsub", "@opentelemetry/core", "firebase-tools"],
+      "expectedVia": [
+        { "from": "firebase-tools", "to": "@google-cloud/pubsub" },
+        { "from": "@google-cloud/pubsub", "to": "@opentelemetry/core" },
+        { "from": "@opentelemetry/core", "to": "GHSA-8988-4F7V-96QF" }
+      ],
+      "expectedNodes": [
+        {
+          "path": "node_modules/firebase-tools",
+          "version": "15.23.0"
+        },
+        {
+          "path": "node_modules/@google-cloud/pubsub",
+          "version": "5.3.1"
+        },
+        {
+          "path": "node_modules/@opentelemetry/core",
+          "version": "1.30.1"
+        }
+      ],
+      "rationale": "The affected OpenTelemetry package is pulled through Firebase CLI Pub/Sub emulator support. The CRM uses the Firestore emulator and does not ship this development dependency in production."
+    }
+  ]
+}
