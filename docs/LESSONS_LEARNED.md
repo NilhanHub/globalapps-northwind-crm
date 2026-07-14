@@ -213,3 +213,17 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 - **Read-only verification:** Run `git fetch --prune`, `git status --short`, `git rev-parse HEAD`, `git rev-parse origin/staging` and `git rev-list --left-right --count origin/main...staging`.
 - **References:** Operational Git state only; there is intentionally no application commit or test for a stale local remote-tracking reference.
 - **Last reviewed:** 2026-07-12
+
+## NW-LL-016
+
+**Firebase emulator tests must not inherit the workstation's complete environment**
+
+- **Area:** Development security and test reliability
+- **Status:** Resolved
+- **Observable symptom:** Firestore emulator tests pass, but Firebase CLI exits after an analytics timeout; its retained debug log also contains every inherited environment variable, including unrelated secret-bearing values.
+- **Root cause:** `firebase emulators:exec` forwards its complete environment to the test command and writes that environment at debug level. A user-level Firebase analytics preference can also introduce a five-second shutdown dependency.
+- **Resolution:** Launch the local Firebase CLI through a repository wrapper that passes only an explicit non-secret environment allowlist, uses an isolated temporary Firebase config directory with telemetry disabled, and removes generated emulator logs after every run.
+- **Permanent regression protection:** Unit tests inject representative credential variables and prove they are excluded, while the release gate runs the real Firestore emulator through the wrapper.
+- **Read-only verification:** Run `npm run test:firestore-emulator`, confirm it exits successfully, and confirm no `firebase-debug*.log` or `firestore-debug.log` remains in the project root.
+- **References:** [`scripts/run-firestore-emulator-tests.mjs`](../scripts/run-firestore-emulator-tests.mjs); [`tests/firestore-emulator-runner.test.js`](../tests/firestore-emulator-runner.test.js); [`package.json`](../package.json).
+- **Last reviewed:** 2026-07-14
