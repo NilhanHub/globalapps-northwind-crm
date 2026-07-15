@@ -19,6 +19,7 @@
 - Fixed People search and summary metrics so later-page records remain discoverable and totals stay workspace-wide.
 - Fixed Route search, owner filters and saved views so they query the complete server-backed route directory; setup totals now remain workspace-wide.
 - Fixed route stage menus so keyboard users can open both cluster and individual-path controls with Enter or Space.
+- Fixed the Routes setup banner and filter controls so they remain readable and unclipped at narrow phone widths, including the 375-pixel browser viewport exposed by some 390-pixel devices.
 - Hardened release promotion to require the exact successful staging push, verify the live staging and production assets, and derive health metadata from the clean deployment commit.
 
 ## 2.1.0 - 2026-07-10

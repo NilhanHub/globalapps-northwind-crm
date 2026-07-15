@@ -2242,6 +2242,22 @@ a {
   .workspace-toolbar {
     flex-wrap: wrap;
   }
+  .workspace--board .workspace-toolbar > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .workspace--board .workspace-toolbar > div > .nw-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .workspace--board .workspace-toolbar > div > svg {
+    display: none;
+  }
+  .workspace--board .workspace-toolbar select {
+    width: 100%;
+    min-width: 0;
+  }
   .search-field {
     flex-basis: 100%;
     max-width: none;
@@ -2343,6 +2359,20 @@ a {
   }
   .setup-banner {
     align-items: flex-start;
+    flex-direction: column;
+    width: 100%;
+  }
+  .setup-banner > div {
+    min-width: 0;
+    width: 100%;
+  }
+  .setup-banner .setup-banner__actions {
+    flex-wrap: wrap;
+  }
+  .setup-banner .setup-banner__actions .nw-button {
+    flex: 1 1 180px;
+    min-width: 0;
+    white-space: normal;
   }
   .bulk-bar {
     top: 0;
