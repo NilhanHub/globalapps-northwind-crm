@@ -227,3 +227,17 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 - **Read-only verification:** Run `npm run test:firestore-emulator`, confirm it exits successfully, and confirm no `firebase-debug*.log` or `firestore-debug.log` remains in the project root.
 - **References:** [`scripts/run-firestore-emulator-tests.mjs`](../scripts/run-firestore-emulator-tests.mjs); [`tests/firestore-emulator-runner.test.js`](../tests/firestore-emulator-runner.test.js); [`package.json`](../package.json).
 - **Last reviewed:** 2026-07-14
+
+## NW-LL-017
+
+**A GitHub-hosted runner can be blocked while the public staging release is healthy**
+
+- **Area:** Release verification
+- **Status:** Resolved
+- **Observable symptom:** `staging-live` receives HTTP `403` for every bounded health probe while the exact SHA, no-store responses and fingerprinted assets succeed from independent networks.
+- **Root cause:** A specific ephemeral GitHub-hosted runner IP was temporarily rejected at the hosting edge before the request reached the CRM; rerunning the failed job on a fresh runner succeeded without a code or Hostinger change.
+- **Resolution:** Preserve the failed logs, independently verify every release fact read-only, then rerun only the failed job on a fresh runner. Never waive `staging-live`, repeatedly redeploy the same SHA or alter the application to disguise an edge rejection.
+- **Permanent regression protection:** Troubleshooting distinguishes a consistent edge `403` from application readiness failures, and the deployment test requires this recovery path to remain documented.
+- **Read-only verification:** Run `node scripts/verify-live-release.mjs <staging-url> <full-sha> 1 1` from an independent network and compare the health SHA with `origin/staging`; stop if any check differs.
+- **References:** GitHub Actions run `29407334706`; [`tests/deployment-config.test.js`](../tests/deployment-config.test.js); [Troubleshooting](./TROUBLESHOOTING.md); [Hostinger runbook](./HOSTINGER_DEPLOYMENT.md#release-and-rollback).
+- **Last reviewed:** 2026-07-15

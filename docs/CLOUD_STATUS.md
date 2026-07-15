@@ -19,6 +19,7 @@ Last documented production configuration:
 - Health endpoint: `200 OK` with Firestore repository available
 - Hostinger source: private `NilhanHub/globalapps-northwind-crm`, branch `main`
 - Hostinger runtime: Node 22, Fastify preset, root entry `app.js`, port 3000
+- Hosting term: the existing Business Web Hosting plan was observed expiring on 2026-08-02; renewal is user-managed and automation must not purchase, renew or change recurring payment settings
 - Shared login, CSRF, secure session cookies and logout: verified in production
 - `apexhrm.com`: verified unaffected and returning `200 OK`
 

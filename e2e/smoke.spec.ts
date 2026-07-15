@@ -99,45 +99,50 @@ test('mobile shell fits the viewport and preserves navigation', async ({ page, i
   expect(width.scroll).toBeLessThanOrEqual(width.client);
 });
 
-test('creates a reusable relationship and advances an audited route', async ({ page, isMobile }) => {
+test('creates a reusable relationship and advances an audited route', async ({ page, isMobile }, testInfo) => {
   test.skip(Boolean(isMobile), 'Full workflow is covered once at desktop width');
+  const runSuffix = `${testInfo.repeatEachIndex + 1}-${testInfo.retry + 1}`;
+  const companyName = `Premium Test Company ${runSuffix}`;
+  const mutualName = `Morgan Connector ${runSuffix}`;
+  const targetName = `Taylor Decision Maker ${runSuffix}`;
   await page.goto('/login');
   await page.getByLabel('Username').fill('northwind-e2e');
   await page.getByLabel('Password').fill('northwind-e2e-passphrase');
   await page.getByRole('button', { name: 'Open Northwind' }).click();
+  await expect(page.getByRole('heading', { name: 'Companies' })).toBeVisible();
 
   await page.locator('.page-actions').getByRole('button', { name: 'Add company' }).click();
-  await page.getByLabel('Company name').fill('Premium Test Company');
+  await page.getByLabel('Company name').fill(companyName);
   await page.getByLabel('Country').fill('Ireland');
   await page.getByRole('dialog').getByRole('button', { name: 'Add company' }).click();
-  await expect(page.getByText('Premium Test Company')).toBeVisible();
+  await expect(page.getByText(companyName)).toBeVisible();
 
   await page.goto('/people');
   await page.locator('.page-actions').getByRole('button', { name: 'Add person' }).click();
-  await page.getByLabel('Name').fill('Morgan Connector');
+  await page.getByLabel('Name').fill(mutualName);
   await page.getByLabel('Type').selectOption('mutual');
   await page.getByRole('dialog').getByRole('button', { name: 'Add person' }).click();
-  await expect(page.getByText('Morgan Connector')).toBeVisible();
+  await expect(page.getByText(mutualName)).toBeVisible();
 
   await page.locator('.page-actions').getByRole('button', { name: 'Add person' }).click();
-  await page.getByLabel('Name').fill('Taylor Decision Maker');
-  await page.getByLabel('Company').selectOption({ label: 'Premium Test Company' });
+  await page.getByLabel('Name').fill(targetName);
+  await page.getByLabel('Company').selectOption({ label: companyName });
   await page.getByRole('dialog').getByRole('button', { name: 'Add person' }).click();
-  await page.getByRole('button', { name: 'Manage Taylor Decision Maker' }).click();
-  await page.getByRole('checkbox', { name: 'Morgan Connector' }).check();
+  await page.getByRole('button', { name: `Manage ${targetName}` }).click();
+  await page.getByRole('checkbox', { name: mutualName }).check();
   await page.getByRole('button', { name: 'Save changes' }).click();
 
   await page.goto('/routes');
   await page.locator('.page-actions').getByRole('button', { name: 'New route' }).click();
   const routeDialog = page.getByRole('dialog');
-  await routeDialog.getByLabel('Company').selectOption({ label: 'Premium Test Company' });
-  await routeDialog.getByLabel('Target').selectOption({ label: 'Taylor Decision Maker' });
-  await routeDialog.getByLabel('Mutual contact').selectOption({ label: 'Morgan Connector' });
+  await routeDialog.getByLabel('Company').selectOption({ label: companyName });
+  await routeDialog.getByLabel('Target').selectOption({ label: targetName });
+  await routeDialog.getByLabel('Mutual contact').selectOption({ label: mutualName });
   await routeDialog.getByLabel('Owner').selectOption('Paul');
   await page.getByRole('dialog').getByRole('button', { name: 'Create warm route' }).click();
-  await expect(page.getByRole('heading', { name: 'Taylor Decision Maker' })).toBeVisible();
-  await page.getByRole('button', { name: /Show 1 mutual paths? for Taylor Decision Maker/i }).click();
-  await page.getByRole('button', { name: /Open route for Taylor Decision Maker/i }).click();
+  await expect(page.getByRole('heading', { name: targetName })).toBeVisible();
+  await page.getByRole('button', { name: new RegExp(`Show 1 mutual paths? for ${targetName}`, 'i') }).click();
+  await page.getByRole('button', { name: new RegExp(`Open route for ${targetName}`, 'i') }).click();
   await page.getByLabel('Outcome or notes').fill('Mutual is happy to help.');
   await page.getByLabel('Interaction outcome').fill('Connected and agreed the next step.');
   await page.getByRole('button', { name: 'Log call' }).click();
