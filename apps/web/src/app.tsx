@@ -95,16 +95,18 @@ function Workspace({ data }: { data: BootstrapData }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [companyQuery, setCompanyQuery] = useState('');
+  const [personQuery, setPersonQuery] = useState('');
   const deferredCompanyQuery = useDeferredValue(companyQuery.trim());
+  const deferredPersonQuery = useDeferredValue(personQuery.trim());
   const revision = useWorkspaceRevisionQuery(true, data.workspaceRevision?.revision ?? '');
   const companyPages = useCompanyPages(true, deferredCompanyQuery);
   const routePages = useRoutePages(true);
-  const personPages = usePersonPages(true);
+  const personPages = usePersonPages(true, deferredPersonQuery);
   const routeMetrics = useRouteMetrics(true);
   const pagedCompanies =
     companyPages.data?.pages.flatMap((page) => page.items) ?? (deferredCompanyQuery ? [] : data.companies);
   const pagedRoutes = routePages.data?.pages.flatMap((page) => page.items) ?? data.routes;
-  const pagedPeople = personPages.data?.pages.flatMap((page) => page.items) ?? data.people;
+  const pagedPeople = personPages.data?.pages.flatMap((page) => page.items) ?? (deferredPersonQuery ? [] : data.people);
   async function create(kind: Exclude<EntityDialogKind, null>, values: Record<string, unknown>) {
     setBusy(true);
     setError('');
@@ -168,9 +170,27 @@ function Workspace({ data }: { data: BootstrapData }) {
             path="/people"
             element={
               <PeoplePage
-                people={pagedPeople}
+                people={personQuery.trim() === deferredPersonQuery ? pagedPeople : []}
+                directoryPeople={data.people}
                 companies={data.companies}
                 routes={data.routes}
+                query={personQuery}
+                onQueryChange={setPersonQuery}
+                searching={
+                  personQuery.trim() !== deferredPersonQuery ||
+                  (Boolean(deferredPersonQuery) && personPages.isFetching && !personPages.isFetchingNextPage)
+                }
+                metrics={{
+                  targets: data.people.filter(
+                    (person) => ['target', 'both'].includes(person.type) && !person.archivedAt,
+                  ).length,
+                  mutuals: data.people.filter(
+                    (person) => ['mutual', 'both'].includes(person.type) && !person.archivedAt,
+                  ).length,
+                  activeRoutes: data.routes.filter(
+                    (route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage),
+                  ).length,
+                }}
                 onCreate={() => setDialog('person')}
                 onRefresh={refresh}
                 hasMore={personPages.hasNextPage}

@@ -1,11 +1,11 @@
-# INC-003: Paginated company search and global metrics
+# INC-003: Paginated directory search and global metrics
 
 Date: 2026-07-12
 Status: Resolved
 
 ## Impact
 
-A valid company outside the first loaded page appeared to be missing from the CRM. Company summary metrics could also describe the visible page rather than the whole workspace, reducing trust in search and reporting.
+A valid company or person outside the first loaded page could appear to be missing from the CRM. Directory summary metrics could also describe the visible page rather than the whole workspace, reducing trust in search and reporting.
 
 ## Detection
 
@@ -18,6 +18,7 @@ A staging browser search for a deterministic company beyond the initial page fai
 - TanStack Query keys became query-specific, and loading feedback stopped stale all-company flashes.
 - Company summary metrics moved to authenticated workspace-wide state.
 - API tests rejected a cursor reused with another query, and browser tests proved the later-page company was discoverable directly.
+- A later staging release audit reproduced the same class in People; People search and query keys were moved to the server-backed page endpoint, and its summary metrics were separated from visible rows.
 
 ## Root cause
 
@@ -31,7 +32,7 @@ Search the authoritative server dataset, scope cached pages by query, and derive
 
 - API tests cover prefix search beyond the first page and filter-bound opaque cursors.
 - Component tests use server-returned results absent from the initial page.
-- Workspace metrics are supplied independently of paginated rows.
+- Companies and People workspace metrics are supplied independently of paginated rows.
 - Loading states are announced without rendering stale results.
 
 ## Verification

@@ -141,11 +141,26 @@ describe('CRM workspaces', () => {
   });
 
   it('exposes person relationship management from the directory', async () => {
+    const onQueryChange = vi.fn();
     render(
       <MemoryRouter>
-        <PeoplePage companies={companies as never} people={people as never} routes={routes as never} />
+        <PeoplePage
+          companies={companies as never}
+          people={people as never}
+          directoryPeople={people as never}
+          routes={routes as never}
+          query="Paul"
+          onQueryChange={onQueryChange}
+          metrics={{ targets: 101, mutuals: 100, activeRoutes: 102 }}
+        />
       </MemoryRouter>,
     );
+    expect(screen.getByRole('searchbox', { name: 'Search people' })).toHaveValue('Paul');
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search people' }), { target: { value: 'Siobhan' } });
+    expect(onQueryChange).toHaveBeenCalledWith('Siobhan');
+    expect(screen.getByText('101')).toBeVisible();
+    expect(screen.getByText('100')).toBeVisible();
+    expect(screen.getByText('102')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Manage Paul Dunk' }));
     expect(await screen.findByRole('dialog', { name: 'Manage Paul Dunk' })).toBeVisible();
     expect(screen.getByRole('checkbox', { name: 'Siobhan Devall' })).toBeChecked();

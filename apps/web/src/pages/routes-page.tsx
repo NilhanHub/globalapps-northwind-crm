@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -41,6 +41,14 @@ const stages: RouteStage[] = [
   'Won',
   'Dead / no route',
 ];
+
+function toggleStageMenuFromKeyboard(event: ReactKeyboardEvent<HTMLElement>) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const details = event.currentTarget.parentElement;
+  if (!(details instanceof HTMLDetailsElement)) return;
+  event.preventDefault();
+  details.open = !details.open;
+}
 
 function RouteCard({
   route,
@@ -125,7 +133,11 @@ function RouteCard({
             />
           </label>
           <details className="stage-menu">
-            <summary role="button" aria-label={`Move ${target?.name || route.companyName} to another stage`}>
+            <summary
+              role="button"
+              aria-label={`Move ${target?.name || route.companyName} to another stage`}
+              onKeyDown={toggleStageMenuFromKeyboard}
+            >
               <MoreHorizontal size={16} />
             </summary>
             <div>
@@ -272,7 +284,11 @@ function RouteClusterCard({
                   </span>
                 </button>
                 <details className="stage-menu">
-                  <summary role="button" aria-label={`Move path via ${mutual?.name || 'mutual'} to another stage`}>
+                  <summary
+                    role="button"
+                    aria-label={`Move path via ${mutual?.name || 'mutual'} to another stage`}
+                    onKeyDown={toggleStageMenuFromKeyboard}
+                  >
                     <MoreHorizontal size={16} />
                   </summary>
                   <div>

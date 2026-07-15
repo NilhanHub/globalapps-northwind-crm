@@ -22,15 +22,15 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 
 **Search the server dataset, not only loaded browser pages**
 
-- **Area:** Companies and pagination
+- **Area:** Companies, People and pagination
 - **Status:** Resolved
-- **Observable symptom:** A company known to exist does not appear in search until additional pages have been loaded.
+- **Observable symptom:** A company or person known to exist does not appear in search until additional pages have been loaded.
 - **Root cause:** The browser filtered the records already in memory instead of sending the search term to the paginated API.
-- **Resolution:** The Companies query sends normalized `q` input to `/api/companies/page`; query-specific cache keys keep one search from displaying another search's results.
+- **Resolution:** Companies and People queries send normalized `q` input to their paginated endpoints; query-specific cache keys keep one search from displaying another search's results.
 - **Permanent regression protection:** Component, API and browser coverage proves that a server-returned result outside the initial page is discoverable and that a cursor cannot be reused with a different query.
-- **Read-only verification:** Inspect the browser request for `/api/companies/page?limit=50&q=...`; do not infer search correctness from the visible first page.
+- **Read-only verification:** Inspect the browser request for `/api/companies/page?limit=50&q=...` or `/api/people/page?limit=50&q=...`; do not infer search correctness from the visible first page.
 - **References:** Commit `06f026f`; [`apps/web/src/queries.test.tsx`](../apps/web/src/queries.test.tsx); [`apps/api/src/server.test.ts`](../apps/api/src/server.test.ts); [`e2e/smoke.spec.ts`](../e2e/smoke.spec.ts).
-- **Last reviewed:** 2026-07-12
+- **Last reviewed:** 2026-07-15
 
 ## NW-LL-003
 
@@ -40,11 +40,11 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 - **Status:** Resolved
 - **Observable symptom:** Active, awaiting-response or route totals change when the user loads another page or applies a client-side filter.
 - **Root cause:** Metrics were derived from the current browser slice rather than the full workspace.
-- **Resolution:** Route metrics are server-derived, and Companies workspace summary values come from authoritative workspace-wide state rather than the current paginated page.
-- **Permanent regression protection:** Pagination endpoints and `/api/routes/metrics` are covered together in the modular API tests; the Companies component test supplies totals independently of its visible company rows.
+- **Resolution:** Route metrics are server-derived, and Companies and People workspace summary values come from authoritative workspace-wide state rather than the current paginated page.
+- **Permanent regression protection:** Pagination endpoints and `/api/routes/metrics` are covered together in the modular API tests; workspace component tests supply totals independently of their visible rows.
 - **Read-only verification:** Compare the authenticated `/api/routes/metrics` response with the UI summary while changing pages; a page change must not redefine the workspace total.
 - **References:** Commits `8730221` and `06f026f`; [`apps/api/src/routes/pages.ts`](../apps/api/src/routes/pages.ts); [`apps/web/src/pages/workspaces.test.tsx`](../apps/web/src/pages/workspaces.test.tsx).
-- **Last reviewed:** 2026-07-12
+- **Last reviewed:** 2026-07-15
 
 ## NW-LL-004
 
@@ -66,13 +66,13 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 
 - **Area:** Route board
 - **Status:** Resolved
-- **Observable symptom:** Clicking a card begins a drag, a failed bulk mutation loses the selection, a stage appears changed after a failed save, or Won/Dead is recorded without deliberate confirmation.
+- **Observable symptom:** Clicking a card begins a drag, a keyboard user cannot open a stage menu, a failed bulk mutation loses the selection, a stage appears changed after a failed save, or Won/Dead is recorded without deliberate confirmation.
 - **Root cause:** Navigation, drag activation, optimistic state and destructive business outcomes shared insufficiently separated interaction paths.
-- **Resolution:** Use a dedicated drag handle and overlay, preserve selection on failed bulk writes, roll back failed optimistic movement, require a reason plus confirmation for terminal outcomes, and derive a five-minute Undo from the latest eligible activity so it survives refresh and expires accurately.
-- **Permanent regression protection:** UI tests cover failed bulk selection and terminal confirmation; API tests require terminal reasons and prove auditable movement plus Undo.
+- **Resolution:** Use a dedicated drag handle and overlay, make stage menus explicitly respond to Enter and Space, preserve selection on failed bulk writes, roll back failed optimistic movement, require a reason plus confirmation for terminal outcomes, and derive a five-minute Undo from the latest eligible activity so it survives refresh and expires accurately.
+- **Permanent regression protection:** UI tests cover keyboard stage-menu activation, failed bulk selection and terminal confirmation; API tests require terminal reasons and prove auditable movement plus Undo.
 - **Read-only verification:** Run the related component/API tests and inspect activity history after a reversible staging move; never test Won or Dead on production data.
-- **References:** Commits `ff55c0b` and `2254a22`; [`apps/web/src/pages/workspaces.test.tsx`](../apps/web/src/pages/workspaces.test.tsx); [`apps/web/src/pages/route-detail-page.test.tsx`](../apps/web/src/pages/route-detail-page.test.tsx); [`tests/hardening-api.test.js`](../tests/hardening-api.test.js).
-- **Last reviewed:** 2026-07-12
+- **References:** Commits `ff55c0b` and `2254a22`; [`apps/web/src/pages/routes-page.test.tsx`](../apps/web/src/pages/routes-page.test.tsx); [`apps/web/src/pages/workspaces.test.tsx`](../apps/web/src/pages/workspaces.test.tsx); [`apps/web/src/pages/route-detail-page.test.tsx`](../apps/web/src/pages/route-detail-page.test.tsx); [`tests/hardening-api.test.js`](../tests/hardening-api.test.js).
+- **Last reviewed:** 2026-07-15
 
 ## NW-LL-006
 

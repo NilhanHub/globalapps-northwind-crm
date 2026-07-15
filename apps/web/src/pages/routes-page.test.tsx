@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Company, Person, Route } from '@northwind/domain';
 import { RoutesPage } from './routes-page';
 
@@ -81,6 +81,11 @@ const routes = [
 ] as Route[];
 
 describe('RoutesPage target clusters', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
   it('defaults to one target cluster at its most advanced path stage and can reveal individual paths', () => {
     render(
       <MemoryRouter>
@@ -95,5 +100,20 @@ describe('RoutesPage target clusters', () => {
     expect(screen.getByText('Morgan Two')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /individual paths/i }));
     expect(screen.getAllByLabelText(/open route for taylor target/i)).toHaveLength(2);
+  });
+
+  it('opens the individual-path stage menu from the keyboard', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <RoutesPage companies={[company]} people={people} routes={[routes[0]!]} />
+      </MemoryRouter>,
+    );
+    const page = within(container);
+
+    fireEvent.click(page.getByRole('button', { name: /individual paths/i }));
+    const stageMenu = page.getByRole('button', { name: 'Move Taylor Target to another stage' });
+    fireEvent.keyDown(stageMenu, { key: 'Enter' });
+
+    expect((stageMenu.parentElement as HTMLDetailsElement).open).toBe(true);
   });
 });
