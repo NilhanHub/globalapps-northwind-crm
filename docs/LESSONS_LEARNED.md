@@ -241,3 +241,17 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 - **Read-only verification:** Run `node scripts/verify-live-release.mjs <staging-url> <full-sha> 1 1` from an independent network and compare the health SHA with `origin/staging`; stop if any check differs.
 - **References:** GitHub Actions run `29407334706`; [`tests/deployment-config.test.js`](../tests/deployment-config.test.js); [Troubleshooting](./TROUBLESHOOTING.md); [Hostinger runbook](./HOSTINGER_DEPLOYMENT.md#release-and-rollback).
 - **Last reviewed:** 2026-07-15
+
+## NW-LL-018
+
+**Missing fingerprinted assets must not fall through to the SPA shell**
+
+- **Area:** Static delivery
+- **Status:** Resolved
+- **Observable symptom:** A missing JavaScript or stylesheet URL returns HTML with status 200, causing misleading browser parse errors such as an unexpected `<` token.
+- **Root cause:** The SPA fallback treated every non-API path as a client-side route, including missing files below `/assets/`.
+- **Resolution:** Return a non-cacheable structured 404 for missing `/assets/` requests while retaining the HTML fallback for genuine application deep links.
+- **Permanent regression protection:** The modular server test proves API routing, SPA deep links, fingerprinted asset caching, security headers and missing-asset behavior together across static-plugin upgrades.
+- **Read-only verification:** Request a nonexistent `/assets/` URL and confirm HTTP 404 with `Cache-Control: no-store`; request a valid fingerprinted asset and confirm a one-year immutable cache policy.
+- **References:** [`apps/api/src/server.ts`](../apps/api/src/server.ts); [`apps/api/src/server.test.ts`](../apps/api/src/server.test.ts).
+- **Last reviewed:** 2026-07-15
