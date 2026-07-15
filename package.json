@@ -80,7 +80,7 @@
     "archiver": "8.0.0",
     "concurrently": "10.0.3",
     "cross-env": "10.1.0",
-    "eslint": "10.6.0",
+    "eslint": "10.7.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "firebase-tools": "15.23.0",
     "globals": "17.7.0",
