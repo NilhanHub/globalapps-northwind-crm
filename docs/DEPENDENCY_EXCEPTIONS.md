@@ -38,3 +38,21 @@ tests use the Firestore emulator.
   itself a gate failure.
 - Accept a replacement only when it is an upstream-compatible release or a semver-valid override that
   passes `npm ls`, the emulator suite and the complete release verification.
+
+## TypeScript 7 compatibility hold
+
+- Recorded: 2026-07-15
+- Review cadence: weekly through Dependabot and the dependency-watch workflow
+- Current compiler: `typescript@6.0.3`
+- Blocking peer: `typescript-eslint@8.62.1` supports TypeScript versions below 6.1
+- Decision: ignore only TypeScript `>=7.0.0 <8.0.0`; continue accepting compatible TypeScript 6.x updates
+
+The TypeScript 7 pull request fails during `npm ci` because the reviewed lint stack does not declare a
+compatible peer range. Do not use `legacy-peer-deps`, cross-major overrides or forced audit fixes to
+hide this invalid tree. Remove the exact Dependabot hold when TypeScript-ESLint publishes supported
+TypeScript 7 compatibility and the clean install, lint, typecheck, emulator and release suites pass.
+
+The scheduled Monday 06:00 UTC dependency watch does not install the registry's latest Firebase CLI.
+It reports the version and fails closed when the installed tree, advisory paths, production exposure,
+severity or expiry differs from the executable exception policy. The 10 August 2026 deadline may be
+extended only by a reviewed pull request with refreshed reachability analysis, for no more than 30 days.

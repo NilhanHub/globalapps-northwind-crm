@@ -12,6 +12,15 @@ updates:
     groups:
       production-dependencies:
         dependency-type: production
+        exclude-patterns:
+          - '@fastify/static'
+    ignore:
+      # TypeScript 7 is outside typescript-eslint 8.62.1's supported peer range.
+      # Keep 6.x patch/minor updates available and remove this exact hold once
+      # typescript-eslint publishes compatible support.
+      - dependency-name: typescript
+        versions:
+          - '>=7.0.0 <8.0.0'
   - package-ecosystem: github-actions
     directory: /
     target-branch: staging

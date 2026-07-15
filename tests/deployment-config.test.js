@@ -42,3 +42,34 @@ test('release automation proves the exact staging build before and after promoti
   assert.match(promotion, /verify-live-release\.mjs.*crm\.globalapps\.world/);
   assert.match(packageJson.scripts.build, /write-release-metadata\.mjs/);
 });
+
+test('dependency automation pins actions, separates the static major and holds only TypeScript 7', async () => {
+  const workflows = await Promise.all(
+    ['ci.yml', 'promote-production.yml', 'dependency-watch.yml'].map((name) =>
+      readFile(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8'),
+    ),
+  );
+  const dependabot = await readFile(new URL('../.github/dependabot.yml', import.meta.url), 'utf8');
+  const dependencyWatch = workflows[2];
+
+  for (const workflow of workflows) {
+    for (const reference of workflow.matchAll(/^\s*- uses:\s*([^\s#]+)/gm))
+      assert.match(reference[1], /@[a-f0-9]{40}$/, `action must use an immutable SHA: ${reference[1]}`);
+  }
+
+  assert.match(dependencyWatch, /cron: ['"]0 6 \* \* 1['"]/);
+  assert.match(dependencyWatch, /node-version: 22/);
+  assert.match(dependencyWatch, /npm ci/);
+  assert.match(dependencyWatch, /npm ls --all/);
+  assert.match(dependencyWatch, /npm audit --omit=dev --audit-level=low/);
+  assert.match(dependencyWatch, /npm run audit:dependencies/);
+  assert.match(dependencyWatch, /npm view firebase-tools version/);
+  assert.match(dependabot, /exclude-patterns:\s*\n\s*- ['"]@fastify\/static['"]/);
+  assert.match(dependabot, /dependency-name: typescript[\s\S]*versions:[\s\S]*>=7\.0\.0 <8\.0\.0/);
+});
+
+test('troubleshooting documents recovery from a blocked GitHub-hosted staging runner', async () => {
+  const troubleshooting = await readFile(new URL('../docs/TROUBLESHOOTING.md', import.meta.url), 'utf8');
+  assert.match(troubleshooting, /GitHub staging check receives `403`/);
+  assert.match(troubleshooting, /fresh GitHub runner/);
+});
