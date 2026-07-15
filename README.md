@@ -2,6 +2,9 @@
 
 Northwind is a relationship-intelligence CRM for turning trusted mutual contacts into warm introductions. It is a typed React application with an authenticated Node API, Firestore production persistence and conflict-safe JSON development persistence.
 
+> [!TIP]
+> **Evaluating this project?** Read the [Engineering Overview](ENGINEERING_OVERVIEW.md) for the production architecture, security and concurrency model, recovery design, verification layers, and guided code tour.
+
 Maintainers and AI agents should start with the [canonical documentation map](docs/README.md) and [AI agent handbook](docs/AI_AGENT_HANDBOOK.md). They distinguish normative guidance, operational runbooks, current limitations, dated status and historical lessons.
 
 ## Architecture
@@ -83,4 +86,4 @@ Route owners are configurable workspace labels, not login identities. Shared in-
 
 Normal releases never compare production to the obsolete root JSON seed. Use `data:integrity`, `data:export:firestore` and `data:verify-export` against current Firestore state. Research intake is dry-run first, provenance-aware, resumable and idempotent through `/imports`. Hostinger archive format 2 authenticates its metadata as well as its encrypted content; staging and production use isolated private directories and trigger tokens.
 
-This repository is private and unlicensed. See [UNLICENSED](UNLICENSED).
+This repository is public for source review but remains unlicensed; viewing the source does not grant reuse rights. See [UNLICENSED](UNLICENSED).
