@@ -166,7 +166,7 @@ test('verified release breakpoints avoid unintended page overflow', async ({ pag
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(path);
     await page.locator('main h1').waitFor({ state: 'visible' });
-    for (const width of [1920, 1440, 1280, 768, 390]) {
+    for (const width of [1920, 1440, 1280, 768, 390, 375]) {
       await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
       const dimensions = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,

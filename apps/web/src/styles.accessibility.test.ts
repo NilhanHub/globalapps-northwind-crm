@@ -40,3 +40,12 @@ describe('dashboard text contrast', () => {
     expect(contrastRatio(declaredHexColor(selector), background)).toBeGreaterThanOrEqual(4.5);
   });
 });
+
+describe('narrow route workspace layout', () => {
+  it('stacks setup guidance and route filters at phone widths', () => {
+    expect(stylesheet).toMatch(/@media \(max-width: 680px\)[\s\S]*?\.setup-banner\s*\{[^}]*flex-direction:\s*column/);
+    expect(stylesheet).toMatch(
+      /\.workspace--board \.workspace-toolbar > div\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/,
+    );
+  });
+});
