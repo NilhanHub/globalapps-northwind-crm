@@ -740,6 +740,13 @@ describe('modular API server', () => {
       })
     ).json<{ id: string; ownerId: string; version: number }>();
     expect(route.ownerId).toBe('owner-unassigned');
+    const searchedRoutes = await app.inject({
+      method: 'GET',
+      url: '/api/routes/page?limit=1&q=target',
+      headers: agent,
+    });
+    expect(searchedRoutes.statusCode).toBe(200);
+    expect(searchedRoutes.json()).toMatchObject({ items: [{ id: route.id }] });
     expect((await app.inject({ method: 'GET', url: '/api/owners', headers: agent })).json()).toHaveLength(5);
     const duplicateOwner = await app.inject({
       method: 'POST',
@@ -769,6 +776,13 @@ describe('modular API server', () => {
       payload: { ownerId: owner.id, dueDate: '2020-01-01', nextAction: 'Follow up' },
     });
     expect(assigned.statusCode).toBe(200);
+    const overdueRoutes = await app.inject({
+      method: 'GET',
+      url: '/api/routes/page?limit=1&view=overdue',
+      headers: agent,
+    });
+    expect(overdueRoutes.statusCode).toBe(200);
+    expect(overdueRoutes.json()).toMatchObject({ items: [{ id: route.id }] });
     const reminders = await app.inject({ method: 'GET', url: '/api/reminders', headers: agent });
     expect(reminders.json<{ items: Array<{ category: string }> }>().items.map((item) => item.category)).toContain(
       'overdue',

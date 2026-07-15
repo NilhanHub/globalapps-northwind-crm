@@ -96,16 +96,44 @@ function Workspace({ data }: { data: BootstrapData }) {
   const [error, setError] = useState('');
   const [companyQuery, setCompanyQuery] = useState('');
   const [personQuery, setPersonQuery] = useState('');
+  const [routeQuery, setRouteQuery] = useState(() => {
+    try {
+      return localStorage.getItem('northwind:routes-query') ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const [routeOwner, setRouteOwner] = useState(() => {
+    try {
+      const stored = localStorage.getItem('northwind:routes-owner') ?? 'all';
+      return data.owners.find((candidate) => candidate.displayName === stored)?.id ?? stored;
+    } catch {
+      return 'all';
+    }
+  });
+  const [routeView, setRouteView] = useState(() => {
+    try {
+      return localStorage.getItem('northwind:routes-saved-view') ?? 'all';
+    } catch {
+      return 'all';
+    }
+  });
   const deferredCompanyQuery = useDeferredValue(companyQuery.trim());
   const deferredPersonQuery = useDeferredValue(personQuery.trim());
+  const deferredRouteQuery = useDeferredValue(routeQuery.trim());
   const revision = useWorkspaceRevisionQuery(true, data.workspaceRevision?.revision ?? '');
   const companyPages = useCompanyPages(true, deferredCompanyQuery);
-  const routePages = useRoutePages(true);
+  const routePages = useRoutePages(true, {
+    query: deferredRouteQuery,
+    ownerId: routeOwner,
+    view: routeView,
+  });
   const personPages = usePersonPages(true, deferredPersonQuery);
   const routeMetrics = useRouteMetrics(true);
   const pagedCompanies =
     companyPages.data?.pages.flatMap((page) => page.items) ?? (deferredCompanyQuery ? [] : data.companies);
-  const pagedRoutes = routePages.data?.pages.flatMap((page) => page.items) ?? data.routes;
+  const routeFiltersActive = Boolean(deferredRouteQuery || routeOwner !== 'all' || routeView !== 'all');
+  const pagedRoutes = routePages.data?.pages.flatMap((page) => page.items) ?? (routeFiltersActive ? [] : data.routes);
   const pagedPeople = personPages.data?.pages.flatMap((page) => page.items) ?? (deferredPersonQuery ? [] : data.people);
   async function create(kind: Exclude<EntityDialogKind, null>, values: Record<string, unknown>) {
     setBusy(true);
@@ -205,8 +233,19 @@ function Workspace({ data }: { data: BootstrapData }) {
               <RoutesPage
                 companies={data.companies}
                 people={data.people}
-                routes={pagedRoutes}
+                routes={routeQuery.trim() === deferredRouteQuery ? pagedRoutes : []}
+                summaryRoutes={data.routes}
                 owners={data.owners}
+                query={routeQuery}
+                onQueryChange={setRouteQuery}
+                owner={routeOwner}
+                onOwnerChange={setRouteOwner}
+                savedView={routeView}
+                onSavedViewChange={setRouteView}
+                searching={
+                  routeQuery.trim() !== deferredRouteQuery ||
+                  (routeFiltersActive && routePages.isFetching && !routePages.isFetchingNextPage)
+                }
                 {...(routeMetrics.data ? { metrics: routeMetrics.data } : {})}
                 hasMore={routePages.hasNextPage}
                 loadingMore={routePages.isFetchingNextPage}

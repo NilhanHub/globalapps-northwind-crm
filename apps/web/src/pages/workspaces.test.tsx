@@ -115,7 +115,12 @@ describe('CRM workspaces', () => {
   it('renders relationship routes in their stage with target and mutual context', () => {
     render(
       <MemoryRouter>
-        <RoutesPage companies={companies as never} people={people as never} routes={routes as never} />
+        <RoutesPage
+          companies={companies as never}
+          people={people as never}
+          routes={routes as never}
+          summaryRoutes={[...routes, { ...routes[0], id: 'r2' }] as never}
+        />
       </MemoryRouter>,
     );
     expect(screen.getByRole('heading', { name: 'Routes' })).toBeVisible();
@@ -125,6 +130,7 @@ describe('CRM workspaces', () => {
     expect(screen.getByRole('heading', { name: 'Intro requested' })).toBeVisible();
     expect(screen.getByRole('checkbox', { name: 'Select all routes for Paul Dunk' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Move path via Siobhan Devall to another stage' })).toBeVisible();
+    expect(screen.getByText('2 incomplete')).toBeVisible();
   });
 
   it('keeps selected routes intact and explains a failed bulk update', async () => {

@@ -17,6 +17,8 @@ export const queryKeys = {
   personPages: () => [...queryKeys.all, 'people', 'pages'] as const,
   personPageQuery: (query: string) => [...queryKeys.personPages(), query.trim()] as const,
   routePages: () => [...queryKeys.all, 'routes', 'pages'] as const,
+  routePageQuery: (query: string, ownerId: string, view: string) =>
+    [...queryKeys.routePages(), query.trim(), ownerId, view] as const,
   routeMetrics: () => [...queryKeys.all, 'routes', 'metrics'] as const,
 };
 
@@ -42,12 +44,16 @@ export function useCompanyPages(enabled: boolean, query = '') {
   });
 }
 
-export function useRoutePages(enabled: boolean) {
+export function useRoutePages(enabled: boolean, filters: { query?: string; ownerId?: string; view?: string } = {}) {
+  const search = filters.query?.trim() ?? '';
+  const ownerId = filters.ownerId && filters.ownerId !== 'all' ? filters.ownerId : '';
+  const view = filters.view && filters.view !== 'all' ? filters.view : '';
+  const filterQuery = `${search ? `&q=${encodeURIComponent(search)}` : ''}${ownerId ? `&ownerId=${encodeURIComponent(ownerId)}` : ''}${view ? `&view=${encodeURIComponent(view)}` : ''}`;
   return useInfiniteQuery({
-    queryKey: queryKeys.routePages(),
+    queryKey: queryKeys.routePageQuery(search, ownerId, view),
     queryFn: ({ pageParam }) =>
       api.request<Page<Route>>(
-        `/api/routes/page?limit=50${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+        `/api/routes/page?limit=50${filterQuery}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
       ),
     initialPageParam: '',
     getNextPageParam: (page) => page.nextCursor ?? undefined,
