@@ -127,6 +127,11 @@ export async function createApp(options: AppOptions) {
         return reply
           .status(404)
           .send({ error: { code: 'NOT_FOUND', message: 'API route not found.', requestId: request.id } });
+      if (request.url.startsWith('/assets/'))
+        return reply
+          .header('Cache-Control', 'no-store')
+          .status(404)
+          .send({ error: { code: 'ASSET_NOT_FOUND', message: 'Static asset not found.', requestId: request.id } });
       reply.header('Cache-Control', 'no-store');
       return reply
         .type('text/html; charset=utf-8')

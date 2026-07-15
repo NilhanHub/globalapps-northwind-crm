@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash, generateKeyPairSync, randomBytes } from 'node:crypto';
@@ -45,8 +45,9 @@ async function fixture(
     ...(options.now ? { now: options.now } : {}),
   });
   const publicDir = join(dir, 'public');
-  await import('node:fs').then(({ mkdirSync }) => mkdirSync(publicDir));
+  mkdirSync(join(publicDir, 'assets'), { recursive: true });
   writeFileSync(join(publicDir, 'index.html'), '<!doctype html><title>Northwind React</title>');
+  writeFileSync(join(publicDir, 'assets', 'index-test123.js'), 'globalThis.__northwindAsset = true;\n');
   const repository = createJsonRepository(dir);
   if (options.repositoryUnavailable)
     repository.healthCheck = async () => {
@@ -77,6 +78,38 @@ async function fixture(
 }
 
 describe('modular API server', () => {
+  it('preserves API routing, SPA fallback, asset caching and security headers', async () => {
+    const { app } = await fixture();
+
+    const apiMissing = await app.inject({
+      method: 'GET',
+      url: '/api/not-a-route',
+      headers: { authorization: 'Bearer agent-secret' },
+    });
+    expect(apiMissing.statusCode).toBe(404);
+    expect(apiMissing.headers['cache-control']).toBe('no-store');
+    expect(apiMissing.json()).toMatchObject({ error: { code: 'NOT_FOUND' } });
+
+    const deepLink = await app.inject({ method: 'GET', url: '/companies/company-1' });
+    expect(deepLink.statusCode).toBe(200);
+    expect(deepLink.headers['content-type']).toContain('text/html');
+    expect(deepLink.headers['cache-control']).toBe('no-store');
+    expect(deepLink.headers['content-security-policy']).toContain("default-src 'self'");
+    expect(deepLink.headers['strict-transport-security']).toBeTruthy();
+    expect(deepLink.body).toContain('<title>Northwind React</title>');
+
+    const asset = await app.inject({ method: 'GET', url: '/assets/index-test123.js' });
+    expect(asset.statusCode).toBe(200);
+    expect(asset.headers['cache-control']).toContain('max-age=31536000');
+    expect(asset.headers['cache-control']).toContain('immutable');
+    expect(asset.body).toContain('__northwindAsset');
+
+    const missingAsset = await app.inject({ method: 'GET', url: '/assets/missing-test123.js' });
+    expect(missingAsset.statusCode).toBe(404);
+    expect(missingAsset.body).not.toContain('<title>Northwind React</title>');
+    await app.close();
+  });
+
   it('exposes a public health check and protects bootstrap', async () => {
     const { app } = await fixture();
     const health = await app.inject({ method: 'GET', url: '/api/health' });
