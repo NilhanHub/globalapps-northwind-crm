@@ -11,16 +11,16 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-dialog": "^1.1.19",
     "clsx": "^2.1.1",
-    "lucide-react": "latest",
-    "react": "latest",
-    "react-dom": "latest",
+    "lucide-react": "^1.24.0",
+    "react": "*",
+    "react-dom": "*",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
-    "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react": "*",
+    "@types/react-dom": "*"
   }
 }
