@@ -263,8 +263,13 @@ function PersonDialog({
 
 export function PeoplePage({
   people,
+  directoryPeople = people,
   companies,
   routes,
+  query = '',
+  onQueryChange,
+  searching = false,
+  metrics,
   onCreate,
   onRefresh,
   hasMore,
@@ -272,30 +277,29 @@ export function PeoplePage({
   onLoadMore,
 }: {
   people: Person[];
+  directoryPeople?: Person[];
   companies: Company[];
   routes: Route[];
+  query?: string;
+  onQueryChange?: (query: string) => void;
+  searching?: boolean;
+  metrics?: { targets: number; mutuals: number; activeRoutes: number };
   onCreate?: () => void;
   onRefresh?: () => Promise<unknown>;
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
 }) {
-  const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [selected, setSelected] = useState<Person | null>(null);
   const companiesById = useMemo(() => new Map(companies.map((company) => [company.id, company])), [companies]);
   const visible = people.filter((person) => {
     const matchesType =
       type === 'all' ||
-      (type === 'duplicates' ? isPossibleDuplicate(person, people) : person.type === type || person.type === 'both');
-    return (
-      !person.archivedAt &&
-      matchesType &&
-      [person.name, person.title, companiesById.get(person.companyId)?.name]
-        .join(' ')
-        .toLowerCase()
-        .includes(query.toLowerCase())
-    );
+      (type === 'duplicates'
+        ? isPossibleDuplicate(person, directoryPeople)
+        : person.type === type || person.type === 'both');
+    return !person.archivedAt && matchesType;
   });
   return (
     <section className="workspace">
@@ -306,16 +310,21 @@ export function PeoplePage({
         metrics={[
           {
             label: 'Targets',
-            value: people.filter((person) => ['target', 'both'].includes(person.type) && !person.archivedAt).length,
+            value:
+              metrics?.targets ??
+              directoryPeople.filter((person) => ['target', 'both'].includes(person.type) && !person.archivedAt).length,
           },
           {
             label: 'Mutuals',
-            value: people.filter((person) => ['mutual', 'both'].includes(person.type) && !person.archivedAt).length,
+            value:
+              metrics?.mutuals ??
+              directoryPeople.filter((person) => ['mutual', 'both'].includes(person.type) && !person.archivedAt).length,
           },
           {
             label: 'Active routes',
-            value: routes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage))
-              .length,
+            value:
+              metrics?.activeRoutes ??
+              routes.filter((route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage)).length,
           },
         ]}
         actions={
@@ -347,13 +356,17 @@ export function PeoplePage({
       <Toolbar className="workspace-toolbar mb-6">
         <SearchField
           aria-label="Search people"
-          placeholder="Search people, roles, companies…"
+          placeholder="Search people by name…"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => onQueryChange?.(event.target.value)}
         />
       </Toolbar>
 
-      {visible.length ? (
+      {searching ? (
+        <div className="page-loading" role="status">
+          Searching people…
+        </div>
+      ) : visible.length ? (
         <div className="data-table-wrap">
           <table className="data-table people-table">
             <thead>
@@ -429,7 +442,7 @@ export function PeoplePage({
       {selected ? (
         <PersonDialog
           person={selected}
-          people={people}
+          people={directoryPeople}
           companies={companies}
           onClose={() => setSelected(null)}
           onRefresh={onRefresh}

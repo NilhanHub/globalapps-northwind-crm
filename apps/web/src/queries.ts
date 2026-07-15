@@ -15,6 +15,7 @@ export const queryKeys = {
   companyPages: () => [...queryKeys.all, 'companies', 'pages'] as const,
   companyPageQuery: (query: string) => [...queryKeys.companyPages(), query.trim()] as const,
   personPages: () => [...queryKeys.all, 'people', 'pages'] as const,
+  personPageQuery: (query: string) => [...queryKeys.personPages(), query.trim()] as const,
   routePages: () => [...queryKeys.all, 'routes', 'pages'] as const,
   routeMetrics: () => [...queryKeys.all, 'routes', 'metrics'] as const,
 };
@@ -54,12 +55,13 @@ export function useRoutePages(enabled: boolean) {
   });
 }
 
-export function usePersonPages(enabled: boolean) {
+export function usePersonPages(enabled: boolean, query = '') {
+  const search = query.trim();
   return useInfiniteQuery({
-    queryKey: queryKeys.personPages(),
+    queryKey: queryKeys.personPageQuery(search),
     queryFn: ({ pageParam }) =>
       api.request<Page<Person>>(
-        `/api/people/page?limit=50${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
+        `/api/people/page?limit=50${search ? `&q=${encodeURIComponent(search)}` : ''}${pageParam ? `&cursor=${encodeURIComponent(pageParam)}` : ''}`,
       ),
     initialPageParam: '',
     getNextPageParam: (page) => page.nextCursor ?? undefined,
