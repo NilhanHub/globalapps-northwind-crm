@@ -324,7 +324,15 @@ export function RoutesPage({
   companies,
   people,
   routes,
+  summaryRoutes = routes,
   owners = [],
+  query: queryProp,
+  onQueryChange,
+  owner: ownerProp,
+  onOwnerChange,
+  savedView: savedViewProp,
+  onSavedViewChange,
+  searching = false,
   onCreate,
   onRefresh,
   hasMore,
@@ -335,7 +343,15 @@ export function RoutesPage({
   companies: Company[];
   people: Person[];
   routes: RelationshipRoute[];
+  summaryRoutes?: RelationshipRoute[];
   owners?: OwnerProfile[];
+  query?: string;
+  onQueryChange?: (query: string) => void;
+  owner?: string;
+  onOwnerChange?: (ownerId: string) => void;
+  savedView?: string;
+  onSavedViewChange?: (view: string) => void;
+  searching?: boolean;
   onCreate?: () => void;
   onRefresh?: () => Promise<unknown>;
   hasMore?: boolean;
@@ -344,14 +360,14 @@ export function RoutesPage({
   metrics?: { active: number; unassigned: number };
 }) {
   const navigate = useNavigate();
-  const [query, setQuery] = useState(() => {
+  const [internalQuery, setInternalQuery] = useState(() => {
     try {
       return localStorage.getItem('northwind:routes-query') ?? '';
     } catch {
       return '';
     }
   });
-  const [owner, setOwner] = useState(() => {
+  const [internalOwner, setInternalOwner] = useState(() => {
     try {
       const stored = localStorage.getItem('northwind:routes-owner') ?? 'all';
       return owners.find((candidate) => candidate.displayName === stored)?.id ?? stored;
@@ -359,13 +375,28 @@ export function RoutesPage({
       return 'all';
     }
   });
-  const [savedView, setSavedView] = useState(() => {
+  const [internalSavedView, setInternalSavedView] = useState(() => {
     try {
       return localStorage.getItem('northwind:routes-saved-view') ?? 'all';
     } catch {
       return 'all';
     }
   });
+  const query = queryProp ?? internalQuery;
+  const owner = ownerProp ?? internalOwner;
+  const savedView = savedViewProp ?? internalSavedView;
+  const setQuery = (next: string) => {
+    if (queryProp === undefined) setInternalQuery(next);
+    onQueryChange?.(next);
+  };
+  const setOwner = (next: string) => {
+    if (ownerProp === undefined) setInternalOwner(next);
+    onOwnerChange?.(next);
+  };
+  const setSavedView = (next: string) => {
+    if (savedViewProp === undefined) setInternalSavedView(next);
+    onSavedViewChange?.(next);
+  };
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkOwner, setBulkOwner] = useState('owner-unassigned');
   const [bulkDate, setBulkDate] = useState('');
@@ -439,7 +470,7 @@ export function RoutesPage({
     if (!activeId) return null;
     return localRoutes.find((r) => r.id === activeId) || null;
   }, [activeId, localRoutes]);
-  const activeRoutes = localRoutes.filter(
+  const activeRoutes = summaryRoutes.filter(
     (route) => !route.archivedAt && !['Won', 'Dead / no route'].includes(route.stage),
   );
   const incompleteRoutes = activeRoutes.filter(
@@ -640,6 +671,11 @@ export function RoutesPage({
           </Select>
         </div>
       </Toolbar>
+      {searching ? (
+        <div className="page-loading" role="status">
+          Filtering routes…
+        </div>
+      ) : null}
       {selected.size ? (
         <div
           className="bulk-bar flex flex-wrap items-center gap-4 p-4 border border-line rounded-md bg-paper shadow-sm mb-6"

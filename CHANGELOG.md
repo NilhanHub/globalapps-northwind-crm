@@ -17,6 +17,7 @@
 - Added normalized identity integrity checks, focused owner/page/reminder API modules and expanded emulator/browser coverage.
 - Fixed Companies search so it queries the complete paginated directory instead of only the records already loaded in the browser, with authoritative global metrics and loading feedback.
 - Fixed People search and summary metrics so later-page records remain discoverable and totals stay workspace-wide.
+- Fixed Route search, owner filters and saved views so they query the complete server-backed route directory; setup totals now remain workspace-wide.
 - Fixed route stage menus so keyboard users can open both cluster and individual-path controls with Enter or Space.
 - Hardened release promotion to require the exact successful staging push, verify the live staging and production assets, and derive health metadata from the clean deployment commit.
 

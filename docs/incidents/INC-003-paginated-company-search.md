@@ -5,7 +5,7 @@ Status: Resolved
 
 ## Impact
 
-A valid company or person outside the first loaded page could appear to be missing from the CRM. Directory summary metrics could also describe the visible page rather than the whole workspace, reducing trust in search and reporting.
+A valid company, person or route outside the first loaded page could appear to be missing from the CRM. Directory summary and route-setup totals could also describe the visible page rather than the whole workspace, reducing trust in search and reporting.
 
 ## Detection
 
@@ -19,6 +19,7 @@ A staging browser search for a deterministic company beyond the initial page fai
 - Company summary metrics moved to authenticated workspace-wide state.
 - API tests rejected a cursor reused with another query, and browser tests proved the later-page company was discoverable directly.
 - A later staging release audit reproduced the same class in People; People search and query keys were moved to the server-backed page endpoint, and its summary metrics were separated from visible rows.
+- The final route-board pass found Route search and saved filters still filtering the first loaded page; the route page endpoint gained query-bound search/views, and setup totals were separated from rendered route rows.
 
 ## Root cause
 
@@ -32,7 +33,7 @@ Search the authoritative server dataset, scope cached pages by query, and derive
 
 - API tests cover prefix search beyond the first page and filter-bound opaque cursors.
 - Component tests use server-returned results absent from the initial page.
-- Companies and People workspace metrics are supplied independently of paginated rows.
+- Companies, People and Route setup metrics are supplied independently of paginated rows.
 - Loading states are announced without rendering stale results.
 
 ## Verification

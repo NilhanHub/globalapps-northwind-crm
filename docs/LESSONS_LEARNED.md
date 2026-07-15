@@ -22,13 +22,13 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 
 **Search the server dataset, not only loaded browser pages**
 
-- **Area:** Companies, People and pagination
+- **Area:** Companies, People, Routes and pagination
 - **Status:** Resolved
-- **Observable symptom:** A company or person known to exist does not appear in search until additional pages have been loaded.
+- **Observable symptom:** A company, person or route known to exist does not appear in search until additional pages have been loaded.
 - **Root cause:** The browser filtered the records already in memory instead of sending the search term to the paginated API.
-- **Resolution:** Companies and People queries send normalized `q` input to their paginated endpoints; query-specific cache keys keep one search from displaying another search's results.
+- **Resolution:** Companies, People and Routes send search and supported filters to their paginated endpoints; query-specific cache keys keep one query from displaying another query's results.
 - **Permanent regression protection:** Component, API and browser coverage proves that a server-returned result outside the initial page is discoverable and that a cursor cannot be reused with a different query.
-- **Read-only verification:** Inspect the browser request for `/api/companies/page?limit=50&q=...` or `/api/people/page?limit=50&q=...`; do not infer search correctness from the visible first page.
+- **Read-only verification:** Inspect the relevant paginated browser request and confirm it carries `q` and any selected route filters; do not infer correctness from the visible first page.
 - **References:** Commit `06f026f`; [`apps/web/src/queries.test.tsx`](../apps/web/src/queries.test.tsx); [`apps/api/src/server.test.ts`](../apps/api/src/server.test.ts); [`e2e/smoke.spec.ts`](../e2e/smoke.spec.ts).
 - **Last reviewed:** 2026-07-15
 
@@ -40,7 +40,7 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 - **Status:** Resolved
 - **Observable symptom:** Active, awaiting-response or route totals change when the user loads another page or applies a client-side filter.
 - **Root cause:** Metrics were derived from the current browser slice rather than the full workspace.
-- **Resolution:** Route metrics are server-derived, and Companies and People workspace summary values come from authoritative workspace-wide state rather than the current paginated page.
+- **Resolution:** Route metrics and setup totals are workspace-wide, and Companies and People workspace summary values come from authoritative state rather than the current paginated page.
 - **Permanent regression protection:** Pagination endpoints and `/api/routes/metrics` are covered together in the modular API tests; workspace component tests supply totals independently of their visible rows.
 - **Read-only verification:** Compare the authenticated `/api/routes/metrics` response with the UI summary while changing pages; a page change must not redefine the workspace total.
 - **References:** Commits `8730221` and `06f026f`; [`apps/api/src/routes/pages.ts`](../apps/api/src/routes/pages.ts); [`apps/web/src/pages/workspaces.test.tsx`](../apps/web/src/pages/workspaces.test.tsx).

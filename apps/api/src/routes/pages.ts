@@ -26,6 +26,89 @@ const decodeCursor = (value: string | undefined, fingerprint: string): [unknown,
 };
 
 export function registerPageRoutes(app: FastifyInstance, repository: CrmRepository) {
+  const routePageResponse = async (
+    request: { requestContext?: RequestContext; query: unknown },
+    query: Record<string, string | undefined>,
+    limit: number,
+  ) => {
+    const view = String(query.view ?? 'all');
+    if (!['all', 'unassigned', 'overdue', 'unscheduled', 'imported'].includes(view))
+      throw Object.assign(new Error('Route view is invalid'), { statusCode: 400, code: 'VALIDATION_ERROR' });
+    const search = normalizeIdentity(String(query.q ?? '')).slice(0, 80);
+    const fingerprint = sha256(
+      JSON.stringify({
+        store: 'routes',
+        limit,
+        orderBy: 'updatedAt',
+        direction: 'desc',
+        ownerId: query.ownerId ?? '',
+        view,
+        search,
+        includeArchived: query.includeArchived,
+      }),
+    );
+    const startAfter = decodeCursor(query.cursor, fingerprint);
+    const context = request.requestContext!;
+    const [routes, people] = await Promise.all([
+      repository.list('routes', context.workspaceId),
+      search ? repository.list('people', context.workspaceId) : Promise.resolve([]),
+    ]);
+    const peopleById = new Map(people.map((person) => [person.id, person]));
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/London',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const filtered = routes
+      .filter((route) => query.includeArchived === 'true' || !route.archivedAt)
+      .filter((route) => !query.ownerId || route.ownerId === query.ownerId)
+      .filter((route) => {
+        if (view === 'unassigned') return route.ownerId === OWNER_IDS.unassigned;
+        if (view === 'overdue') return route.outcome === 'pending' && Boolean(route.dueDate) && route.dueDate < today;
+        if (view === 'unscheduled') return route.outcome === 'pending' && (!route.dueDate || !route.nextAction);
+        if (view === 'imported') return Boolean(route.sourceIdentityKey);
+        return true;
+      })
+      .filter((route) => {
+        if (!search) return true;
+        return normalizeIdentity(
+          [
+            route.companyName,
+            peopleById.get(route.targetPersonId)?.name,
+            peopleById.get(route.mutualPersonId)?.name,
+          ].join(' '),
+        ).includes(search);
+      })
+      .sort((left, right) => {
+        const updated = String(right.updatedAt ?? right.createdAt).localeCompare(
+          String(left.updatedAt ?? left.createdAt),
+        );
+        return updated || right.id.localeCompare(left.id);
+      });
+    let start = 0;
+    if (startAfter) {
+      const index = filtered.findIndex(
+        (route) => String(route.updatedAt ?? route.createdAt) === String(startAfter[0]) && route.id === startAfter[1],
+      );
+      if (index < 0)
+        throw Object.assign(new Error('Cursor is invalid or no longer available'), {
+          statusCode: 400,
+          code: 'INVALID_CURSOR',
+        });
+      start = index + 1;
+    }
+    const items = filtered.slice(start, start + limit);
+    const hasMore = start + items.length < filtered.length;
+    const last = items.at(-1);
+    return {
+      items,
+      hasMore,
+      nextCursor:
+        hasMore && last ? encodeCursor([String(last.updatedAt ?? last.createdAt), last.id], fingerprint) : null,
+    };
+  };
+
   const pageResponse = async (
     store: 'companies' | 'people' | 'routes' | 'activities',
     request: { requestContext?: RequestContext; query: unknown },
@@ -34,6 +117,8 @@ export function registerPageRoutes(app: FastifyInstance, repository: CrmReposito
   ) => {
     const query = request.query as Record<string, string | undefined>;
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 50));
+    if (store === 'routes' && (String(query.q ?? '').trim() || !['', 'all'].includes(String(query.view ?? ''))))
+      return routePageResponse(request, query, limit);
     const equals = Object.fromEntries(
       Object.entries(query)
         .filter(([key, value]) => ['stage', 'ownerId', 'outcome', 'companyId', 'type'].includes(key) && value)
