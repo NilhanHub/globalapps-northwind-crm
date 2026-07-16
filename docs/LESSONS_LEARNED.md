@@ -269,3 +269,17 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 - **Read-only verification:** With the approved Firestore environment selected, run `npm run data:integrity` and `npm run data:migrate:company-canonical`; the latter must report no planned repairs after the migration.
 - **References:** [`packages/domain/src/domain.test.ts`](../packages/domain/src/domain.test.ts); [`apps/api/src/services/company-canonical-migration.test.ts`](../apps/api/src/services/company-canonical-migration.test.ts); [`scripts/migrate-company-canonical-fields.ts`](../scripts/migrate-company-canonical-fields.ts); [INC-004](./incidents/INC-004-malformed-company-bootstrap.md).
 - **Last reviewed:** 2026-07-19
+
+## NW-LL-020
+
+**Portfolio and documentation work must follow the same staging release path as application code**
+
+- **Area:** Release governance and repository policy
+- **Status:** Resolved
+- **Observable symptom:** Production and `main` serve a newer documentation-only commit while permanent `staging` remains on the previously approved release; repository files can also make contradictory reuse claims such as MIT and all-rights-reserved at the same time.
+- **Root cause:** Documentation and portfolio pull requests targeted `main` directly, and existing CI verified their contents without rejecting the unsupported base branch or enforcing the repository's single reuse policy.
+- **Resolution:** Reconcile the legitimate portfolio work through `staging`, retain `UNLICENSED` as the sole source-code reuse policy, and make CI fail every pull request that targets `main` instead of `staging`.
+- **Permanent regression protection:** The CI release-discipline job rejects pull requests whose base is `main`; deployment tests require that guard; the portfolio workflow and repository-policy test require `UNLICENSED`, forbid a competing `LICENSE`, and verify the rights notice.
+- **Read-only verification:** Compare `origin/main`, `origin/staging` and both live health SHAs; inspect open pull-request base branches; run `node --test tests/deployment-config.test.js` and confirm the repository has exactly the documented all-rights-reserved policy.
+- **References:** Commits `779b5d3` and `3f41ef5`; [CI workflow](../.github/workflows/ci.yml); [portfolio workflow](../.github/workflows/portfolio-integrity.yml); [`tests/deployment-config.test.js`](../tests/deployment-config.test.js); [`UNLICENSED`](../UNLICENSED); [`RIGHTS.md`](../RIGHTS.md).
+- **Last reviewed:** 2026-07-16
