@@ -1,5 +1,12 @@
 # Northwind CRM
 
+<!-- portfolio-flagship -->
+<p align="center"><img src="docs/social-preview.png" alt="Northwind CRM social preview" width="100%"></p>
+
+> **Portfolio review path:** Start with the capabilities and architecture below, then reproduce the documented verification commands. See [SECURITY.md](SECURITY.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [RIGHTS.md](RIGHTS.md) for the project's operating and reuse boundaries.
+
+![Northwind secure shared-access screen](docs/screenshots/login.png)
+
 Northwind is a relationship-intelligence CRM for turning trusted mutual contacts into warm introductions. It is a typed React application with an authenticated Node API, Firestore production persistence and conflict-safe JSON development persistence.
 
 > [!TIP]
