@@ -70,7 +70,10 @@ export const companySchema = z
     phone: z.string().default(''),
     contacted: z.boolean().default(false),
     nextStep: z.object({ type: z.enum(['email', 'call']), note: z.string() }).optional(),
-    lastContactAt: z.string().default(''),
+    lastContactAt: z
+      .string()
+      .nullish()
+      .transform((value) => value ?? ''),
     activity: z.array(z.record(z.string(), z.unknown())).default([]),
     createdAt: z.string().min(1),
     createdBy: z.string().default('Manual update'),

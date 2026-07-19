@@ -40,6 +40,8 @@
     "data:seed:staging": "tsx scripts/seed-staging.ts",
     "data:migrate:owners": "tsx scripts/migrate-owners.ts",
     "data:migrate:query-keys": "tsx scripts/migrate-query-keys.ts",
+    "data:migrate:company-canonical": "tsx scripts/migrate-company-canonical-fields.ts --dry-run",
+    "data:migrate:company-canonical:apply": "tsx scripts/migrate-company-canonical-fields.ts --apply",
     "data:export:firestore": "tsx scripts/export-firestore.ts",
     "data:verify-export": "tsx scripts/verify-export.ts",
     "ops:footprint": "tsx scripts/ops-footprint.ts",

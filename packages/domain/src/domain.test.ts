@@ -24,6 +24,17 @@ describe('domain schemas', () => {
     if (!result.success) expect(result.error.flatten().fieldErrors.name).toBeDefined();
   });
 
+  it('normalizes a legacy null last-contact value without rejecting the workspace', () => {
+    expect(
+      companySchema.parse({
+        id: 'company-legacy-null-contact',
+        name: 'Legacy company',
+        createdAt: '2026-07-16T00:00:00.000Z',
+        lastContactAt: null,
+      }).lastContactAt,
+    ).toBe('');
+  });
+
   it('accepts every supported route owner and stage', () => {
     const result = routeSchema.safeParse({
       id: 'route-1',

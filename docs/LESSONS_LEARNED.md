@@ -255,3 +255,17 @@ Each lesson must remain safe for a fresh clone: cite tracked code, tests, script
 - **Read-only verification:** Request a nonexistent `/assets/` URL and confirm HTTP 404 with `Cache-Control: no-store`; request a valid fingerprinted asset and confirm a one-year immutable cache policy.
 - **References:** [`apps/api/src/server.ts`](../apps/api/src/server.ts); [`apps/api/src/server.test.ts`](../apps/api/src/server.test.ts).
 - **Last reviewed:** 2026-07-15
+
+## NW-LL-019
+
+**External importers must emit canonical domain values, and readers must tolerate reviewed legacy nulls**
+
+- **Area:** Firestore data integrity and workspace bootstrap
+- **Status:** Resolved
+- **Observable symptom:** The signed-in shell and navigation render, but every workspace view is replaced by “Northwind could not load” even though health reports Firestore ready.
+- **Root cause:** An external lead importer wrote `null` for the string-valued `lastContactAt` field and used a different apostrophe-normalization rule. Bootstrap validates all stores together, so the first malformed company rejected the complete response.
+- **Resolution:** Normalize the reviewed legacy null to an empty string at the shared schema boundary, make the importer emit canonical strings and query keys, and provide a dry-run-first versioned migration for existing Firestore records.
+- **Permanent regression protection:** Domain tests cover legacy null parsing; migration tests cover versioned, idempotent canonical repairs; the importer tests assert both the string field and Northwind-compatible apostrophe normalization.
+- **Read-only verification:** With the approved Firestore environment selected, run `npm run data:integrity` and `npm run data:migrate:company-canonical`; the latter must report no planned repairs after the migration.
+- **References:** [`packages/domain/src/domain.test.ts`](../packages/domain/src/domain.test.ts); [`apps/api/src/services/company-canonical-migration.test.ts`](../apps/api/src/services/company-canonical-migration.test.ts); [`scripts/migrate-company-canonical-fields.ts`](../scripts/migrate-company-canonical-fields.ts); [INC-004](./incidents/INC-004-malformed-company-bootstrap.md).
+- **Last reviewed:** 2026-07-19

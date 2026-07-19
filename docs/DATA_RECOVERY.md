@@ -7,6 +7,7 @@ Use the current-data commands for routine operations:
 - `npm run data:integrity` audits live references, normalized identities, duplicates, versions, archive state and workspace scope without writing.
 - `npm run data:export:firestore` creates a timestamped export with per-store JSON, IDs, canonical SHA-256 hashes, schema metadata and an integrity report.
 - `npm run data:verify-export -- <export-directory>` revalidates the export before it is considered recoverable.
+- `npm run data:migrate:company-canonical` is a read-only preview for legacy null contact dates and stale company query keys. Its `:apply` variant performs one versioned Firestore transaction, writes an audit activity and advances the workspace revision; run it only after verifying identity, project, a current managed backup or PITR point, and the exact reviewed commit.
 
 Quarterly recovery drills restore a verified export or managed backup into a separate temporary Firestore database. Production must never be the first restore target.
 

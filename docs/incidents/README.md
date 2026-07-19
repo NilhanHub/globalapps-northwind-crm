@@ -34,3 +34,4 @@ Reports must be sanitized. Never include credentials, password hashes, tokens, c
 - [INC-001: Hostinger release verification failures](INC-001-hostinger-release-verification.md)
 - [INC-002: Backup and recovery hardening](INC-002-backup-recovery-hardening.md)
 - [INC-003: Paginated company search](INC-003-paginated-company-search.md)
+- [INC-004: Malformed company data blocked workspace bootstrap](INC-004-malformed-company-bootstrap.md)

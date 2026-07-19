@@ -35,7 +35,7 @@ Create the runtime key only after verifying the active Google identity. Save it 
 ## Release and rollback
 
 1. Run `npm run verify:release` on Node 22.
-2. Run `npm run data:integrity`, create a current Firestore export and verify that export. The JSON migration command is not a production verification command.
+2. Run `npm run data:integrity`, create a current Firestore export and verify that export. The JSON migration command is not a production verification command. If integrity fails specifically on legacy company canonical fields, first verify a current managed backup or PITR recovery point, then dry-run `npm run data:migrate:company-canonical`; use the apply variant only for the exact reviewed repair set and rerun integrity plus export verification immediately afterward.
 3. Before the first operational-maturity release, run `npm run data:migrate:query-keys` and `npm run data:migrate:owners`, then rerun integrity. Both migrations are idempotent.
 4. Deploy the exact commit to `crm-staging.globalapps.world` and complete login, API, responsive, accessibility and reversible-write checks against staging seed data.
 5. Promote that unchanged commit to production. The build derives `release-metadata.json` from the Git checkout and embeds the same identity inside the compiled API bundle. Hostinger's managed install normalizes `package-lock.json`; that single observed path is the only permitted build drift. Any application, configuration or other tracked-file drift fails closed. Production refuses to start without valid clean embedded metadata, and `/api/health` never substitutes manually entered commit or build-time variables for it. `CRM_APP_VERSION` may still provide the release label.
