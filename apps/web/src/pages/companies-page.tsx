@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Archive, LayoutGrid, List, Plus } from 'lucide-react';
+import { Archive, ArrowUpRight, LayoutGrid, List, Plus } from 'lucide-react';
 import { Badge, Button, Toolbar, SearchField, EmptyState, Card, IconButton, Skeleton } from '@northwind/ui';
 import type { Company, Route } from '@northwind/domain';
 import { Link } from 'react-router-dom';
@@ -98,27 +98,37 @@ export function CompaniesPage({
         view === 'grid' ? (
           <div className="company-grid">
             {visible.map((company) => (
-              <Card
-                key={company.id}
-                className="company-card hover:shadow-md hover:-translate-y-0.5 transition-all p-0 overflow-hidden"
-              >
-                <Link className="block p-6 h-full" to={`/companies/${company.id}`}>
+              <Card key={company.id} className="company-card">
+                <Link
+                  className="company-card__link"
+                  to={`/companies/${company.id}`}
+                  aria-label={`Open ${company.name} account`}
+                >
                   <div className="company-card__top">
-                    <div className="company-monogram">{company.name.slice(0, 1)}</div>
+                    <div className="company-monogram" aria-hidden="true">
+                      {company.name.slice(0, 1)}
+                    </div>
                     <Badge tone={statusTone(company.status)}>{company.status}</Badge>
                   </div>
-                  <h2>{company.name}</h2>
-                  <p>
-                    {company.sector || company.industry || 'Sector not set'}
-                    {company.country ? ` · ${company.country}` : ''}
-                  </p>
+                  <div className="company-card__identity">
+                    <h2>{company.name}</h2>
+                    <p>
+                      {company.sector || company.industry || 'Sector not set'}
+                      {company.country ? ` · ${company.country}` : ''}
+                    </p>
+                  </div>
                   <div className="company-card__route">
                     <span>Relationship paths</span>
                     <strong>{activeRoutes.filter((route) => route.companyId === company.id).length}</strong>
                   </div>
                   <footer>
-                    <span>{company.contactName || 'Contact not set'}</span>
-                    <span>Open account →</span>
+                    <span className="company-card__contact">
+                      <span className="company-card__contact-label">Primary contact</span>
+                      <span className="company-card__contact-name">{company.contactName || 'Contact not set'}</span>
+                    </span>
+                    <span className="company-card__action" aria-hidden="true">
+                      Open account <ArrowUpRight size={15} strokeWidth={1.8} />
+                    </span>
                   </footer>
                 </Link>
               </Card>

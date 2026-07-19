@@ -55,6 +55,11 @@ test('company search queries the full server-backed directory', async ({ page, i
   await page.getByRole('searchbox', { name: 'Search companies' }).fill('Zulu');
 
   await expect(page.getByText('Zulu Systems')).toBeVisible();
+  const accountLink = page.getByRole('link', { name: 'Open Zulu Systems account' });
+  await expect(accountLink).toBeVisible();
+  expect(await accountLink.evaluate((element) => getComputedStyle(element).textDecorationLine)).toBe('none');
+  await accountLink.focus();
+  await expect(accountLink).toBeFocused();
   expect(capturedQuery).toBe('Zulu');
 });
 

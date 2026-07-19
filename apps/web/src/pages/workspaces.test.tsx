@@ -104,6 +104,8 @@ describe('CRM workspaces', () => {
     );
     expect(screen.getByRole('heading', { name: 'Companies' })).toBeVisible();
     expect(screen.getByText('Weetabix Food Company')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Open Weetabix Food Company account' })).toHaveClass('company-card__link');
+    expect(screen.getByText('Primary contact')).toBeVisible();
     const search = screen.getByRole('searchbox', { name: 'Search companies' });
     expect(search).toHaveValue('Weetabix');
     fireEvent.change(search, { target: { value: 'Northwind' } });
