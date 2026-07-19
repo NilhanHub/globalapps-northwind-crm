@@ -15,7 +15,16 @@ test.describe('Accessibility Automation Suite', () => {
     await page.getByRole('button', { name: 'Open Northwind' }).click();
     await expect(page.getByRole('heading', { name: 'Companies', exact: true })).toBeVisible();
 
-    for (const path of ['/companies', '/people', '/routes', '/dashboard', '/process', '/imports', '/archived']) {
+    for (const path of [
+      '/companies',
+      '/companies/company-intelligence-demo',
+      '/people',
+      '/routes',
+      '/dashboard',
+      '/process',
+      '/imports',
+      '/archived',
+    ]) {
       await page.goto(path);
       await page.waitForTimeout(500); // Allow render to complete
       const results = await new AxeBuilder({ page }).analyze();
