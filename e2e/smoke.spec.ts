@@ -104,6 +104,54 @@ test('mobile shell fits the viewport and preserves navigation', async ({ page, i
   expect(width.scroll).toBeLessThanOrEqual(width.client);
 });
 
+test('company intelligence is specific, sourced, accessible and responsive', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await page.goto('/login');
+  await page.getByLabel('Username').fill('northwind-e2e');
+  await page.getByLabel('Password').fill('northwind-e2e-passphrase');
+  await page.getByRole('button', { name: 'Open Northwind' }).click();
+  await expect(page.getByRole('heading', { name: 'Companies', exact: true })).toBeVisible();
+  await page.goto('/companies/company-intelligence-demo');
+
+  await expect(page.getByRole('heading', { name: 'Opportunity intelligence' })).toBeVisible();
+  await expect(page.getByText(/200,000-250,000 monthly invoice lines/)).toBeVisible();
+  await expect(page.getByText(/Offer focused AP automation/)).toBeVisible();
+  const source = page.getByRole('link', { name: 'Open Microsoft Customer Stories evidence' });
+  await expect(source).toBeVisible();
+  expect(await source.getAttribute('rel')).toBe('noreferrer');
+
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    const dimensions = await page.evaluate(() => {
+      const hero = document.querySelector('.company-hero')!.getBoundingClientRect();
+      const title = document.querySelector('.company-hero h1')!.getBoundingClientRect();
+      const action = document.querySelector('.company-hero__action')!.getBoundingClientRect();
+      return {
+        scroll: document.documentElement.scrollWidth,
+        client: document.documentElement.clientWidth,
+        heroLeft: hero.left,
+        heroRight: hero.right,
+        titleLeft: title.left,
+        titleRight: title.right,
+        actionLeft: action.left,
+        actionRight: action.right,
+      };
+    });
+    expect(dimensions.scroll, `company intelligence at ${width}px`).toBeLessThanOrEqual(dimensions.client);
+    expect(dimensions.titleLeft, `company title left edge at ${width}px`).toBeGreaterThanOrEqual(dimensions.heroLeft);
+    expect(dimensions.titleRight, `company title right edge at ${width}px`).toBeLessThanOrEqual(dimensions.heroRight);
+    expect(dimensions.actionLeft, `company action left edge at ${width}px`).toBeGreaterThanOrEqual(dimensions.heroLeft);
+    expect(dimensions.actionRight, `company action right edge at ${width}px`).toBeLessThanOrEqual(dimensions.heroRight);
+  }
+
+  const accessibility = await new AxeBuilder({ page }).include('.intelligence-panel').analyze();
+  expect(accessibility.violations).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test('creates a reusable relationship and advances an audited route', async ({ page, isMobile }, testInfo) => {
   test.skip(Boolean(isMobile), 'Full workflow is covered once at desktop width');
   const runSuffix = `${testInfo.repeatEachIndex + 1}-${testInfo.retry + 1}`;

@@ -32,6 +32,107 @@ const companySchema = z.object({
 
 type CompanySchema = z.infer<typeof companySchema>;
 
+type CompanyIntel = {
+  specificEvidence: string;
+  commercialOpening: string;
+  whyItMatters: string;
+  intelligenceReading: string;
+  opportunityStatus: string;
+  signalTier: string;
+  signalType: string;
+  remainingUncertainty: string[];
+  doNotClaim: string[];
+  sourceName: string;
+  evidenceUrl: string;
+  fetchedAt: string;
+  verifiedLive: boolean;
+  report?: {
+    round?: number;
+    title?: string;
+    pdfFilename?: string;
+  };
+};
+
+function textField(record: Record<string, unknown>, key: string) {
+  return typeof record[key] === 'string' ? record[key].trim() : '';
+}
+
+function textList(record: Record<string, unknown>, key: string) {
+  if (!Array.isArray(record[key])) return [];
+  return [
+    ...new Set(record[key].filter((item): item is string => typeof item === 'string').map((item) => item.trim())),
+  ].filter(Boolean);
+}
+
+function safeHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+function readCompanyIntel(company: Company): CompanyIntel | null {
+  const raw = company.intel;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const specificEvidence =
+    textField(record, 'specificEvidence') || textField(record, 'signal') || textField(record, 'evidenceExcerpt');
+  const commercialOpening = textField(record, 'commercialOpening');
+  if (!specificEvidence && !commercialOpening) return null;
+
+  const rawReport = record.report;
+  const report =
+    rawReport && typeof rawReport === 'object' && !Array.isArray(rawReport)
+      ? (rawReport as Record<string, unknown>)
+      : null;
+
+  return {
+    specificEvidence,
+    commercialOpening,
+    whyItMatters: textField(record, 'whyItMatters'),
+    intelligenceReading: textField(record, 'intelligenceReading'),
+    opportunityStatus: textField(record, 'opportunityStatus'),
+    signalTier: textField(record, 'signalTier'),
+    signalType: textField(record, 'signalType'),
+    remainingUncertainty: textList(record, 'remainingUncertainty'),
+    doNotClaim: textList(record, 'doNotClaim'),
+    sourceName: textField(record, 'sourceName'),
+    evidenceUrl: safeHttpUrl(textField(record, 'evidenceUrl')),
+    fetchedAt: textField(record, 'fetchedAt'),
+    verifiedLive: record.verifiedLive === true,
+    ...(report
+      ? {
+          report: {
+            ...(typeof report.round === 'number' ? { round: report.round } : {}),
+            ...(typeof report.title === 'string' && report.title.trim() ? { title: report.title.trim() } : {}),
+            ...(typeof report.pdfFilename === 'string' && report.pdfFilename.trim()
+              ? { pdfFilename: report.pdfFilename.trim() }
+              : {}),
+          },
+        }
+      : {}),
+  };
+}
+
+function humanize(value: string, fallback: string) {
+  const normalized = value.replaceAll('_', ' ').replaceAll('-', ' ').trim();
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : fallback;
+}
+
+function opportunityTone(status: string): 'neutral' | 'burgundy' | 'copper' | 'sage' {
+  if (status === 'actionable_hypothesis') return 'sage';
+  if (status === 'identity_unresolved' || status === 'watchlist') return 'copper';
+  if (status === 'partner_capacity' || status === 'partner_channel') return 'burgundy';
+  return 'neutral';
+}
+
+function reportLabel(intel: CompanyIntel) {
+  const parts = [intel.report?.round ? `Round ${intel.report.round}` : '', intel.report?.title || ''].filter(Boolean);
+  return parts.join(' · ');
+}
+
 function CompanyDialog({
   company,
   onClose,
@@ -217,6 +318,7 @@ export function CompanyDetailPage({
   const companyPeople = people.filter((person) => person.companyId === company.id && !person.archivedAt);
   const companyRoutes = routes.filter((route) => route.companyId === company.id && !route.archivedAt);
   const peopleById = new Map(people.map((person) => [person.id, person]));
+  const intel = readCompanyIntel(company);
 
   async function recordNote() {
     if (!note.trim()) return;
@@ -244,7 +346,7 @@ export function CompanyDetailPage({
 
       <header className="company-hero mb-6">
         <div className="company-monogram company-monogram--hero">{company.name.slice(0, 1)}</div>
-        <div>
+        <div className="company-hero__identity">
           <span className="page-eyebrow">Account intelligence</span>
           <h1>{company.name}</h1>
           <p>
@@ -252,13 +354,112 @@ export function CompanyDetailPage({
             {company.country ? ` · ${company.country}` : ''}
           </p>
         </div>
-        <Badge tone={company.status === 'Won' ? 'sage' : 'burgundy'}>{company.status}</Badge>
-        <Button variant="secondary" onClick={() => setEditOpen(true)}>
+        <div className="company-hero__status">
+          <Badge tone={company.status === 'Won' ? 'sage' : 'burgundy'}>{company.status}</Badge>
+        </div>
+        <Button className="company-hero__action" variant="secondary" onClick={() => setEditOpen(true)}>
           <Edit3 size={15} className="mr-1.5" /> Edit account
         </Button>
       </header>
 
       <div className="detail-grid">
+        {intel ? (
+          <Card
+            className="detail-panel detail-panel--wide intelligence-panel"
+            aria-labelledby="opportunity-intelligence-title"
+          >
+            <header className="intelligence-panel__header">
+              <div>
+                <span className="panel-eyebrow">Evidence-backed account brief</span>
+                <h2 id="opportunity-intelligence-title">Opportunity intelligence</h2>
+                <p>What the public evidence says, where 1BT can help, and what still needs confirmation.</p>
+              </div>
+              <div className="intelligence-panel__status">
+                <Badge tone={opportunityTone(intel.opportunityStatus)}>
+                  {humanize(intel.opportunityStatus, 'Opportunity')}
+                </Badge>
+                {intel.signalTier ? <span>{intel.signalTier} signal</span> : null}
+              </div>
+            </header>
+
+            {intel.specificEvidence ? (
+              <section className="intelligence-panel__evidence" aria-labelledby="observed-signal-title">
+                <h3 id="observed-signal-title">Observed signal</h3>
+                <p>{intel.specificEvidence}</p>
+              </section>
+            ) : null}
+
+            <div className="intelligence-panel__grid">
+              {intel.commercialOpening ? (
+                <section>
+                  <h3>Practical opening</h3>
+                  <p>{intel.commercialOpening}</p>
+                </section>
+              ) : null}
+              {intel.whyItMatters ? (
+                <section>
+                  <h3>Why it matters</h3>
+                  <p>{intel.whyItMatters}</p>
+                </section>
+              ) : null}
+              {intel.intelligenceReading ? (
+                <section>
+                  <h3>How to position it</h3>
+                  <p>{intel.intelligenceReading}</p>
+                </section>
+              ) : null}
+              {intel.signalType ? (
+                <section>
+                  <h3>Signal type</h3>
+                  <p>{humanize(intel.signalType, 'Public D365 signal')}</p>
+                </section>
+              ) : null}
+            </div>
+
+            {intel.remainingUncertainty.length || intel.doNotClaim.length ? (
+              <aside className="intelligence-panel__guardrails" aria-label="Qualification guardrails">
+                {intel.remainingUncertainty.length ? (
+                  <div>
+                    <h3>Confirm before outreach</h3>
+                    <ul>
+                      {intel.remainingUncertainty.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {intel.doNotClaim.length ? (
+                  <div>
+                    <h3>Do not overstate</h3>
+                    <ul>
+                      {intel.doNotClaim.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </aside>
+            ) : null}
+
+            <footer className="intelligence-panel__provenance">
+              <div>
+                {intel.verifiedLive ? <strong>Verified public evidence</strong> : <strong>Public evidence</strong>}
+                {reportLabel(intel) ? <span>{reportLabel(intel)}</span> : null}
+              </div>
+              {intel.evidenceUrl ? (
+                <a
+                  href={intel.evidenceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open ${intel.sourceName || 'public source'} evidence`}
+                >
+                  {intel.sourceName || 'Open public source'} <ExternalLink size={14} aria-hidden="true" />
+                </a>
+              ) : null}
+            </footer>
+          </Card>
+        ) : null}
+
         <Card className="detail-panel detail-panel--wide">
           <header className="mb-4">
             <span className="panel-eyebrow text-xs uppercase font-data font-bold tracking-wider text-copper">
