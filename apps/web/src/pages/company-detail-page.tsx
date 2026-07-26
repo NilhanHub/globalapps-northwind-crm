@@ -17,7 +17,7 @@ import {
   FieldError,
 } from '@northwind/ui';
 import type { Activity, Company, Person, Route } from '@northwind/domain';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from '../lib/router';
 import { api } from '../api';
 import { ApiError } from '@northwind/api-client';
 

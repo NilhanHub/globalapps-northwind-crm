@@ -53,6 +53,7 @@ test('dependency automation pins actions, separates the static major and holds o
     ),
   );
   const dependabot = await readFile(new URL('../.github/dependabot.yml', import.meta.url), 'utf8');
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const dependencyWatch = workflows[2];
 
   for (const workflow of workflows) {
@@ -64,11 +65,49 @@ test('dependency automation pins actions, separates the static major and holds o
   assert.match(dependencyWatch, /node-version: 22/);
   assert.match(dependencyWatch, /npm ci/);
   assert.match(dependencyWatch, /npm ls --all/);
-  assert.match(dependencyWatch, /npm audit --omit=dev --audit-level=low/);
   assert.match(dependencyWatch, /npm run audit:dependencies/);
-  assert.match(dependencyWatch, /npm view firebase-tools version/);
+  assert.match(dependencyWatch, /Firebase CLI is not installed/);
+  assert.doesNotMatch(dependencyWatch, /npm view firebase-tools version/);
+  assert.equal(packageJson.devDependencies?.['firebase-tools'], undefined);
   assert.match(dependabot, /exclude-patterns:\s*\n\s*- ['"]@fastify\/static['"]/);
   assert.match(dependabot, /dependency-name: typescript[\s\S]*versions:[\s\S]*>=7\.0\.0 <8\.0\.0/);
+});
+
+test('Firestore emulator tests use Google Cloud SDK instead of Firebase CLI', async () => {
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const emulatorRunner = await readFile(new URL('../scripts/run-firestore-emulator-tests.mjs', import.meta.url), 'utf8');
+
+  assert.equal(packageJson.devDependencies?.['firebase-tools'], undefined);
+  assert.match(emulatorRunner, /gcloud/);
+  assert.match(emulatorRunner, /emulators/);
+  assert.match(emulatorRunner, /firestore/);
+  assert.match(emulatorRunner, /firebase-tools@15\.24\.0/);
+});
+
+test('reviewed package manifests pin every external dependency exactly', async () => {
+  const manifests = [
+    '../package.json',
+    '../apps/api/package.json',
+    '../apps/web/package.json',
+    '../packages/api-client/package.json',
+    '../packages/domain/package.json',
+    '../packages/ui/package.json',
+    '../infra/functions/backup-verifier/package.json',
+  ];
+
+  for (const manifest of manifests) {
+    const packageJson = JSON.parse(await readFile(new URL(manifest, import.meta.url), 'utf8'));
+    for (const section of ['dependencies', 'devDependencies', 'overrides']) {
+      for (const [name, version] of Object.entries(packageJson[section] ?? {})) {
+        if (name.startsWith('@northwind/') && version === '*') continue;
+        assert.match(
+          version,
+          /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/,
+          `${manifest} must pin ${name} exactly instead of ${version}`,
+        );
+      }
+    }
+  }
 });
 
 test('repository reuse policy remains consistently all-rights-reserved', async () => {

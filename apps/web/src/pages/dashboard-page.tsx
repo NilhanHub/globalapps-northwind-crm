@@ -3,7 +3,7 @@ import { ArrowUpRight, CalendarClock, Check, CircleAlert, UserRoundCheck } from 
 import { Badge, Button, Card, Select, Alert, IconButton, Input } from '@northwind/ui';
 import type { Company, OwnerProfile, Person, Route } from '@northwind/domain';
 import { PageHeader } from '../components/page-header';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '../lib/router';
 import { api } from '../api';
 import { ApiError } from '@northwind/api-client';
 

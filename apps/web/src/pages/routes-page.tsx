@@ -26,7 +26,7 @@ import {
   Dialog,
 } from '@northwind/ui';
 import type { Company, OwnerProfile, Person, Route as RelationshipRoute, RouteStage } from '@northwind/domain';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '../lib/router';
 import { PageHeader } from '../components/page-header';
 import { api } from '../api';
 import { ApiError } from '@northwind/api-client';

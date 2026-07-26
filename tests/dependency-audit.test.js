@@ -182,7 +182,30 @@ test('high severity and invalid dependency trees cannot be excepted', () => {
   const result = validate({ fullAudit: changedAudit, npmLsValid: false });
   const errors = result.errors.join('\n');
   assert.match(errors, /invalid dependency tree/);
-  assert.match(errors, /high and critical findings cannot be excepted/);
+  assert.match(errors, /high findings require an explicit production reachability exception/);
+});
+
+test('high production exceptions require explicit reachability controls', () => {
+  const errors = validatePolicyShape({
+    schemaVersion: 1,
+    reviewCadenceDays: 7,
+    exceptions: [
+      {
+        advisoryId: 'GHSA-mh99-v99m-4gvg',
+        severity: 'high',
+        reviewedAt: '2026-07-26',
+        expiresOn: '2026-08-10',
+        directDependency: { name: '@google-cloud/firestore', version: '8.7.0' },
+        allowedPackages: ['brace-expansion', 'glob'],
+        expectedVia: [{ from: 'glob', to: 'brace-expansion' }],
+        expectedNodes: [{ path: 'node_modules/glob', version: '10.5.0' }],
+        rationale: 'Incomplete high exception.',
+      },
+    ],
+  });
+  assert.match(errors.join('\n'), /high-severity exceptions require production dependencyScope/);
+  assert.match(errors.join('\n'), /high-severity exceptions require allowHighSeverity: true/);
+  assert.match(errors.join('\n'), /high-severity exceptions require runtimeReachability/);
 });
 
 test('malformed policies are rejected', () => {

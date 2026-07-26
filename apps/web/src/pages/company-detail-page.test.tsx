@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from '../lib/router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CompanyDetailPage } from './company-detail-page';
 

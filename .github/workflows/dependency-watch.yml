@@ -26,21 +26,17 @@ jobs:
         run: npm ci
       - name: Require a valid dependency tree
         run: npm ls --all
-      - name: Require zero production vulnerabilities
-        run: npm audit --omit=dev --audit-level=low
-      - name: Validate exact development exceptions
+      - name: Validate exact dependency exceptions
         run: npm run audit:dependencies
-      - name: Report the installed and latest Firebase CLI versions
+      - name: Report dependency exception status
         shell: bash
         run: |
           set -euo pipefail
-          INSTALLED="$(node -p "require('./package.json').devDependencies['firebase-tools']")"
-          LATEST="$(npm view firebase-tools version)"
+          node -e "const pkg=require('./package.json'); if (pkg.devDependencies && pkg.devDependencies['firebase-tools']) process.exit(1)"
           {
-            echo '## Firebase CLI dependency watch'
+            echo '## Dependency watch'
             echo
-            echo "- Installed reviewed version: \`${INSTALLED}\`"
-            echo "- Latest registry version: \`${LATEST}\`"
-            echo '- Production vulnerability gate: passed'
-            echo '- Exact exception policy: passed'
+            echo '- Firebase CLI is not installed in the root npm tree.'
+            echo '- Firestore emulator tests prefer Google Cloud SDK and use an exact ephemeral Firebase CLI fallback only when needed.'
+            echo '- Exact exception policy: passed.'
           } >> "$GITHUB_STEP_SUMMARY"

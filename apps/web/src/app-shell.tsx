@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import { Bell, Building2, FileUp, Gauge, LogOut, Network, Route, Search, Settings, UsersRound } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from './lib/router';
 import { Dialog, IconButton } from '@northwind/ui';
 import { useAuth } from './auth';
 import { ReminderDialog } from './components/reminder-dialog';

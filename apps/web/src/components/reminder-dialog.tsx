@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bell, CalendarClock, CheckCircle2, Clock3, ExternalLink } from 'lucide-react';
 import { Alert, Button, Dialog, Input } from '@northwind/ui';
-import { Link } from 'react-router-dom';
+import { Link } from '../lib/router';
 import { ApiError } from '@northwind/api-client';
 import type { RouteReminder } from '@northwind/domain';
 import { api } from '../api';
