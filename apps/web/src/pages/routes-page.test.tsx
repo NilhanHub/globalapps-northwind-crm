@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from '../lib/router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Company, Person, Route } from '@northwind/domain';
 import { RoutesPage } from './routes-page';

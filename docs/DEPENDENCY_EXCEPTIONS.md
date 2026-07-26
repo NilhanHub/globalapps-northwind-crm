@@ -2,37 +2,53 @@
 
 Temporary dependency exceptions are executable policy, not blanket suppressions. The canonical
 machine-readable policy is [`config/dependency-audit-exceptions.json`](../config/dependency-audit-exceptions.json),
-and `npm run audit:dependencies` validates it against the installed lockfile and both production-only
-and full-tree npm audits.
+and `npm run audit:dependencies` validates it against the installed lockfile, `npm ls --all`, the
+production-only npm audit and the full npm audit.
 
-## Firebase CLI transitive moderate advisories
+## Active exception: Firestore `google-gax` transitive cleanup-tool advisory
 
-- Recorded: 2026-07-11
+- Recorded: 2026-07-26
 - Review by: 2026-08-10, then weekly until resolved
-- Direct dependency: development-only `firebase-tools@15.23.0`
-- Production audit: zero known vulnerabilities; production exposure always fails the gate
-- Decision: do not downgrade Firebase CLI or use `npm audit fix --force`. Disposable installation
-  checks showed that the suggested downgrade retains the affected chain and introduces additional
-  findings. Cross-major overrides made `npm ls` report an invalid tree.
+- Direct dependency: production `@google-cloud/firestore@8.7.0` in `apps/api`
+- Advisory: `GHSA-mh99-v99m-4gvg`
+- Observed chain: `@google-cloud/firestore` → `google-gax@5.0.8` → `rimraf@5.0.10` →
+  `glob@10.5.0` → `minimatch@9.0.9` → `brace-expansion@2.1.2`
 
-### `GHSA-w5hq-g745-h8pq` — UUID buffer bounds
+`google-gax@5.0.8` declares `rimraf`, but the shipped `google-gax` JavaScript package does not import
+or execute it. `rimraf` is a file-removal helper, and the vulnerable brace-expansion path is not part
+of CRM request handling or Firestore document reads/writes.
 
-The audit propagates this advisory through `uuid@9.0.1`, `gaxios@6.7.1` and `firebase-tools`.
-The advisory affects UUID `v3`, `v5` and `v6` when caller-supplied buffers or offsets are out of
-bounds. The reviewed Firebase CLI path calls `uuid.v4()` to construct a multipart boundary. This
-reduces practical reachability but does not mean the upstream package is patched.
+Rejected alternatives:
 
-### `GHSA-8988-4f7v-96qf` — OpenTelemetry baggage allocation
+- `@google-cloud/firestore@7.11.6` was tested in a disposable project and reintroduced direct
+  Firestore plus UUID-related moderate production advisories.
+- Cross-major `rimraf@6` overrides made `npm ls` report an invalid dependency tree.
+- `google-gax@6.0.1-experimental` is outside Firestore's supported dependency range and is not a
+  reviewed stable remediation.
+- `npm audit fix --force` remains prohibited.
 
-The audit propagates this advisory through `@opentelemetry/core@1.30.1`,
-`@google-cloud/pubsub@5.3.1` and `firebase-tools`. The path belongs to Firebase CLI Pub/Sub emulator
-support. Northwind's production application does not ship Firebase CLI, and its automated database
-tests use the Firestore emulator.
+Removal condition: remove this exception immediately when Google publishes a compatible stable
+Firestore/google-gax release that no longer pulls the `rimraf@5` chain, or when the repository adapter
+is replaced and the complete release suite passes without the exception.
+
+## Retired installed exception: Firebase CLI development advisories
+
+The CRM no longer installs `firebase-tools` in the root npm tree. Firestore emulator tests prefer the
+Google Cloud SDK emulator. On machines where the Cloud SDK Firestore emulator component is not
+installed and cannot be added without elevation, the runner uses exact ephemeral
+`firebase-tools@15.24.0` through `npx` as a fallback. That fallback is not committed to
+`package.json` or `package-lock.json`, and production installs do not include it.
+
+The earlier installed Firebase CLI UUID and OpenTelemetry exceptions were retired on 2026-07-26 and
+must not be reintroduced unless a future change deliberately restores Firebase CLI to this repository
+and repeats the full reachability review.
 
 ## Controls and removal conditions
 
-- `npm run audit:dependencies` fails on production exposure, unapproved advisories, high or critical
-  severity, package-chain drift, version/path drift, expiry, malformed policy or an invalid npm tree.
+- `npm run audit:dependencies` fails on unapproved advisories, package-chain drift, version/path
+  drift, expiry, malformed policy or an invalid npm tree.
+- Production advisories require an explicit production-scope exception, exact nodes, explicit
+  high-severity approval and a runtime-reachability rationale.
 - Dependabot checks weekly against `staging`.
 - Remove an exception immediately when the corresponding advisory disappears; a stale exception is
   itself a gate failure.
@@ -44,7 +60,7 @@ tests use the Firestore emulator.
 - Recorded: 2026-07-15
 - Review cadence: weekly through Dependabot and the dependency-watch workflow
 - Current compiler: `typescript@6.0.3`
-- Blocking peer: `typescript-eslint@8.62.1` supports TypeScript versions below 6.1
+- Blocking peer: `typescript-eslint@8.64.0` supports TypeScript versions below 6.1
 - Decision: ignore only TypeScript `>=7.0.0 <8.0.0`; continue accepting compatible TypeScript 6.x updates
 
 The TypeScript 7 pull request fails during `npm ci` because the reviewed lint stack does not declare a
@@ -52,7 +68,7 @@ compatible peer range. Do not use `legacy-peer-deps`, cross-major overrides or f
 hide this invalid tree. Remove the exact Dependabot hold when TypeScript-ESLint publishes supported
 TypeScript 7 compatibility and the clean install, lint, typecheck, emulator and release suites pass.
 
-The scheduled Monday 06:00 UTC dependency watch does not install the registry's latest Firebase CLI.
-It reports the version and fails closed when the installed tree, advisory paths, production exposure,
-severity or expiry differs from the executable exception policy. The 10 August 2026 deadline may be
-extended only by a reviewed pull request with refreshed reachability analysis, for no more than 30 days.
+The scheduled Monday 06:00 UTC dependency watch does not install the registry's latest Firebase CLI as
+a repository dependency. It validates the reviewed npm tree and the executable exception policy, then
+reports the current controlled exception status. The 10 August 2026 deadline may be extended only by a
+reviewed pull request with refreshed reachability analysis, for no more than 30 days.

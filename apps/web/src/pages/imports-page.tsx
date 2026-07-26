@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Link2, Mail, UploadCloud } from 'lucide-react';
 import { Alert, Badge, Button, Card, EmptyState, RelationshipThread } from '@northwind/ui';
-import { Link } from 'react-router-dom';
+import { Link } from '../lib/router';
 import { ApiError } from '@northwind/api-client';
 import { PageHeader } from '../components/page-header';
 import { api } from '../api';

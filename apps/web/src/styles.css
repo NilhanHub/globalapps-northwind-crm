@@ -32,10 +32,12 @@
 html {
   color-scheme: light;
   background: var(--nw-porcelain);
+  overflow-x: clip;
 }
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: clip;
   color: var(--nw-ink);
   background: var(--nw-porcelain);
   font-family: var(--nw-font-ui);
@@ -1207,8 +1209,10 @@ a {
 .skeleton-page {
   display: grid;
   gap: 14px;
+  max-width: 100%;
 }
 .skeleton-page div {
+  max-width: 100%;
   min-height: 140px;
   border-radius: var(--nw-radius-md);
   background: linear-gradient(90deg, #eceae3, #f8f7f3, #eceae3);
@@ -2451,9 +2455,13 @@ a {
   .mobile-nav {
     position: fixed;
     z-index: 50;
-    inset: auto 0 0;
+    left: 0;
+    right: auto;
+    bottom: 0;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+    max-width: 100%;
     min-height: 66px;
     padding: 7px 8px max(7px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--nw-line);

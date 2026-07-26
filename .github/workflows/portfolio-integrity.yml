@@ -23,6 +23,8 @@ jobs:
           test -s README.md
           test -s SECURITY.md
           test -s CONTRIBUTING.md
+          test -s UNLICENSED
+          test ! -e LICENSE
           test -s RIGHTS.md
           test -s docs/social-preview.png
           python - <<'PY'

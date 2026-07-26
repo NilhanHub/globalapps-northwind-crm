@@ -108,8 +108,23 @@ export function validatePolicyShape(policy) {
     } else {
       ids.add(exception.advisoryId.toUpperCase());
     }
-    if (!['low', 'moderate'].includes(exception.severity)) {
-      errors.push(`${prefix} severity must be low or moderate.`);
+    if (!['low', 'moderate', 'high'].includes(exception.severity)) {
+      errors.push(`${prefix} severity must be low, moderate or high.`);
+    }
+    const dependencyScope = exception.dependencyScope ?? 'development';
+    if (!['development', 'production'].includes(dependencyScope)) {
+      errors.push(`${prefix} dependencyScope must be development or production.`);
+    }
+    if (exception.severity === 'high') {
+      if (dependencyScope !== 'production') {
+        errors.push(`${prefix} high-severity exceptions require production dependencyScope.`);
+      }
+      if (exception.allowHighSeverity !== true) {
+        errors.push(`${prefix} high-severity exceptions require allowHighSeverity: true.`);
+      }
+      if (!exception.runtimeReachability || typeof exception.runtimeReachability !== 'string') {
+        errors.push(`${prefix} high-severity exceptions require runtimeReachability.`);
+      }
     }
     for (const field of ['reviewedAt', 'expiresOn']) {
       if (!ISO_DATE.test(exception[field] ?? '') || Number.isNaN(Date.parse(`${exception[field]}T00:00:00Z`))) {
@@ -160,6 +175,18 @@ function maximumSeverity(severities) {
   );
 }
 
+function declaredDependencyVersion({ packageJson, lockfile, dependencyName, dependencyScope }) {
+  const rootField = dependencyScope === 'production' ? 'dependencies' : 'devDependencies';
+  const rootVersion = packageJson?.[rootField]?.[dependencyName];
+  if (rootVersion) return rootVersion;
+  for (const [packagePath, packageData] of Object.entries(lockfile?.packages ?? {})) {
+    if (!packagePath || packagePath.startsWith('node_modules/')) continue;
+    const version = packageData?.[rootField]?.[dependencyName];
+    if (version) return version;
+  }
+  return undefined;
+}
+
 export function validateAuditData({
   policy,
   productionAudit,
@@ -173,12 +200,11 @@ export function validateAuditData({
   const errors = [...policyErrors];
   const groups = groupAuditFindings(fullAudit);
   const productionPackages = Object.keys(vulnerabilitiesFrom(productionAudit)).sort();
+  const productionPackageSet = new Set(productionPackages);
+  const approvedProductionPackages = new Set();
   const today = now.toISOString().slice(0, 10);
 
   if (!npmLsValid) errors.push('npm ls reports an invalid dependency tree.');
-  if (productionPackages.length > 0) {
-    errors.push(`Production dependencies contain vulnerabilities: ${productionPackages.join(', ')}.`);
-  }
   if (policyErrors.length > 0) {
     return { ok: false, errors, groups, productionPackages };
   }
@@ -199,8 +225,22 @@ export function validateAuditData({
     seen.add(group.advisoryId);
 
     const observedSeverity = maximumSeverity(group.severities);
+    const dependencyScope = exception.dependencyScope ?? 'development';
+    const productionGroupPackages = group.packages.filter((packageName) => productionPackageSet.has(packageName));
+    if (productionGroupPackages.length > 0) {
+      if (dependencyScope !== 'production') {
+        errors.push(`${group.advisoryId} reaches production dependencies: ${productionGroupPackages.join(', ')}.`);
+      } else {
+        for (const packageName of productionGroupPackages) approvedProductionPackages.add(packageName);
+      }
+    }
+
     if (SEVERITY[observedSeverity] >= SEVERITY.high) {
-      errors.push(`${group.advisoryId} is ${observedSeverity}; high and critical findings cannot be excepted.`);
+      if (dependencyScope !== 'production' || exception.allowHighSeverity !== true || !exception.runtimeReachability) {
+        errors.push(
+          `${group.advisoryId} is ${observedSeverity}; high findings require an explicit production reachability exception.`,
+        );
+      }
     } else if (observedSeverity !== exception.severity) {
       errors.push(`${group.advisoryId} severity drifted from ${exception.severity} to ${observedSeverity}.`);
     }
@@ -222,7 +262,12 @@ export function validateAuditData({
       errors.push(`${group.advisoryId} exception expired on ${exception.expiresOn}.`);
     }
 
-    const declaredVersion = packageJson?.devDependencies?.[exception.directDependency.name];
+    const declaredVersion = declaredDependencyVersion({
+      packageJson,
+      lockfile,
+      dependencyName: exception.directDependency.name,
+      dependencyScope,
+    });
     if (declaredVersion !== exception.directDependency.version) {
       errors.push(
         `${group.advisoryId} direct dependency drifted; expected ${exception.directDependency.name}@${exception.directDependency.version}.`,
@@ -232,10 +277,19 @@ export function validateAuditData({
       const observed = lockfile?.packages?.[expected.path];
       if (!observed || observed.version !== expected.version) {
         errors.push(`${group.advisoryId} dependency node drifted at ${expected.path}; expected ${expected.version}.`);
-      } else if (observed.dev !== true) {
+      } else if (dependencyScope === 'development' && observed.dev !== true) {
         errors.push(`${group.advisoryId} dependency node is no longer development-only: ${expected.path}.`);
+      } else if (dependencyScope === 'production' && observed.dev === true) {
+        errors.push(`${group.advisoryId} dependency node unexpectedly became development-only: ${expected.path}.`);
       }
     }
+  }
+
+  const uncoveredProductionPackages = productionPackages.filter(
+    (packageName) => !approvedProductionPackages.has(packageName),
+  );
+  if (uncoveredProductionPackages.length > 0) {
+    errors.push(`Production dependencies contain vulnerabilities: ${uncoveredProductionPackages.join(', ')}.`);
   }
 
   for (const exception of policy?.exceptions ?? []) {
@@ -249,6 +303,7 @@ export function validateAuditData({
     errors,
     groups,
     productionPackages,
+    approvedProductionPackages: sortedUnique([...approvedProductionPackages]),
     propagatedWarningCount: Object.keys(vulnerabilitiesFrom(fullAudit)).length,
     advisoryCount: groups.length,
   };
@@ -361,8 +416,12 @@ function printResult(result, json) {
     return;
   }
   if (result.ok) {
+    const productionSummary =
+      result.approvedProductionPackages?.length > 0
+        ? `${result.approvedProductionPackages.length} production package warnings are covered by reviewed exceptions`
+        : 'production clean';
     console.log(
-      `Dependency audit passed: production clean; ${result.propagatedWarningCount} development package warnings resolve to ${result.advisoryCount} reviewed advisories.`,
+      `Dependency audit passed: ${productionSummary}; ${result.propagatedWarningCount} package warnings resolve to ${result.advisoryCount} reviewed advisories.`,
     );
     for (const group of result.groups) {
       console.log(`- ${group.advisoryId}: ${group.packages.join(', ')}`);

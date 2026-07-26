@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Archive, ArrowUpRight, LayoutGrid, List, Plus } from 'lucide-react';
 import { Badge, Button, Toolbar, SearchField, EmptyState, Card, IconButton, Skeleton } from '@northwind/ui';
 import type { Company, Route } from '@northwind/domain';
-import { Link } from 'react-router-dom';
+import { Link } from '../lib/router';
 import { PageHeader } from '../components/page-header';
 
 const statusTone = (status: string) =>

@@ -25,7 +25,7 @@ import {
   Dialog,
 } from '@northwind/ui';
 import type { BootstrapData } from '../types';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from '../lib/router';
 import { api } from '../api';
 import { ApiError } from '@northwind/api-client';
 

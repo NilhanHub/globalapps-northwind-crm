@@ -10,6 +10,17 @@ permissions:
   security-events: write
 
 jobs:
+  release-discipline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject pull requests that target production directly
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: |
+          echo "::error title=Wrong release branch::Pull requests must target staging. Production is updated only by the guarded exact-SHA promotion workflow."
+          exit 1
+      - name: Confirm supported release path
+        if: github.event_name != 'pull_request' || github.base_ref != 'main'
+        run: echo "Release branch discipline satisfied."
   secrets:
     runs-on: ubuntu-latest
     steps:

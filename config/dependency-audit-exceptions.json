@@ -3,68 +3,53 @@
   "reviewCadenceDays": 7,
   "exceptions": [
     {
-      "advisoryId": "GHSA-w5hq-g745-h8pq",
-      "advisoryUrl": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
-      "severity": "moderate",
-      "reviewedAt": "2026-07-11",
+      "advisoryId": "GHSA-mh99-v99m-4gvg",
+      "advisoryUrl": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+      "severity": "high",
+      "dependencyScope": "production",
+      "allowHighSeverity": true,
+      "runtimeReachability": "The CRM loads Firestore through @google-cloud/firestore. google-gax@5.0.8 declares rimraf@5.0.10, but the shipped google-gax JavaScript package does not import or execute rimraf; rimraf is a file-removal helper and the vulnerable brace-expansion path is not reachable from CRM request handling.",
+      "reviewedAt": "2026-07-26",
       "expiresOn": "2026-08-10",
       "directDependency": {
-        "name": "firebase-tools",
-        "version": "15.23.0"
+        "name": "@google-cloud/firestore",
+        "version": "8.7.0"
       },
-      "allowedPackages": ["firebase-tools", "gaxios", "uuid"],
+      "allowedPackages": ["brace-expansion", "glob", "google-gax", "minimatch", "rimraf"],
       "expectedVia": [
-        { "from": "firebase-tools", "to": "gaxios" },
-        { "from": "gaxios", "to": "uuid" },
-        { "from": "uuid", "to": "GHSA-W5HQ-G745-H8PQ" }
+        { "from": "brace-expansion", "to": "GHSA-MH99-V99M-4GVG" },
+        { "from": "minimatch", "to": "brace-expansion" },
+        { "from": "glob", "to": "minimatch" },
+        { "from": "rimraf", "to": "glob" },
+        { "from": "google-gax", "to": "rimraf" }
       ],
       "expectedNodes": [
         {
-          "path": "node_modules/firebase-tools",
-          "version": "15.23.0"
+          "path": "node_modules/@google-cloud/firestore",
+          "version": "8.7.0"
         },
         {
-          "path": "node_modules/firebase-tools/node_modules/gaxios",
-          "version": "6.7.1"
+          "path": "node_modules/google-gax",
+          "version": "5.0.8"
         },
         {
-          "path": "node_modules/firebase-tools/node_modules/gaxios/node_modules/uuid",
-          "version": "9.0.1"
+          "path": "node_modules/rimraf",
+          "version": "5.0.10"
+        },
+        {
+          "path": "node_modules/rimraf/node_modules/glob",
+          "version": "10.5.0"
+        },
+        {
+          "path": "node_modules/rimraf/node_modules/minimatch",
+          "version": "9.0.9"
+        },
+        {
+          "path": "node_modules/rimraf/node_modules/brace-expansion",
+          "version": "2.1.2"
         }
       ],
-      "rationale": "Firebase CLI's affected gaxios path calls uuid.v4() for multipart boundaries; the advisory affects v3, v5 and v6 when caller-supplied buffers are out of bounds. This remains development-only tooling."
-    },
-    {
-      "advisoryId": "GHSA-8988-4f7v-96qf",
-      "advisoryUrl": "https://github.com/advisories/GHSA-8988-4f7v-96qf",
-      "severity": "moderate",
-      "reviewedAt": "2026-07-11",
-      "expiresOn": "2026-08-10",
-      "directDependency": {
-        "name": "firebase-tools",
-        "version": "15.23.0"
-      },
-      "allowedPackages": ["@google-cloud/pubsub", "@opentelemetry/core", "firebase-tools"],
-      "expectedVia": [
-        { "from": "firebase-tools", "to": "@google-cloud/pubsub" },
-        { "from": "@google-cloud/pubsub", "to": "@opentelemetry/core" },
-        { "from": "@opentelemetry/core", "to": "GHSA-8988-4F7V-96QF" }
-      ],
-      "expectedNodes": [
-        {
-          "path": "node_modules/firebase-tools",
-          "version": "15.23.0"
-        },
-        {
-          "path": "node_modules/@google-cloud/pubsub",
-          "version": "5.3.1"
-        },
-        {
-          "path": "node_modules/@opentelemetry/core",
-          "version": "1.30.1"
-        }
-      ],
-      "rationale": "The affected OpenTelemetry package is pulled through Firebase CLI Pub/Sub emulator support. The CRM uses the Firestore emulator and does not ship this development dependency in production."
+      "rationale": "No supported Firestore 8.x release removes google-gax@5.0.8's unused rimraf declaration; Firestore 7.x reintroduces direct moderate Firestore and UUID advisories. Downgrades and cross-major overrides were tested and rejected. Remove this exception as soon as Google publishes a compatible Firestore/google-gax release without the rimraf@5 chain, or replace the repository adapter before the expiry."
     }
   ]
 }

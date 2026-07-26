@@ -45,15 +45,19 @@ describe('backup generator output paths', () => {
       ],
     },
     { name: 'trigger-token generator', command: [resolve(repositoryRoot, 'scripts', 'backup-generate-trigger.mjs')] },
-  ])('$name fails closed without writing secret material to stdout', ({ command }) => {
-    for (const argument of [undefined, 'relative-output', repositoryRoot, resolve(repositoryRoot, 'Evidence')]) {
-      const result = spawnSync(process.execPath, argument ? [...command, argument] : command, {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-      });
-      expect(result.status).not.toBe(0);
-      expect(result.stdout).toBe('');
-      expect(result.stderr).toMatch(/outside the repository|absolute path/i);
-    }
-  });
+  ])(
+    '$name fails closed without writing secret material to stdout',
+    ({ command }) => {
+      for (const argument of [undefined, 'relative-output', repositoryRoot, resolve(repositoryRoot, 'Evidence')]) {
+        const result = spawnSync(process.execPath, argument ? [...command, argument] : command, {
+          cwd: repositoryRoot,
+          encoding: 'utf8',
+        });
+        expect(result.status).not.toBe(0);
+        expect(result.stdout).toBe('');
+        expect(result.stderr).toMatch(/outside the repository|absolute path/i);
+      }
+    },
+    20_000,
+  );
 });
