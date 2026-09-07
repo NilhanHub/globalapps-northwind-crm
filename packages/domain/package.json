@@ -8,5 +8,5 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run src"
   },
-  "dependencies": { "zod": "4.4.3" }
+  "dependencies": { "zod": "4.5.4" }
 }
